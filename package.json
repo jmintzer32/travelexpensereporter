@@ -1,0 +1,38 @@
+{
+  "name": "travel-expense-reporter",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "ng serve",
+    "build": "ng build",
+    "lint": "tsc --noEmit",
+    "preview": "ng serve --configuration=production"
+  },
+  "dependencies": {
+    "@angular/animations": "^21.1.5",
+    "@angular/build": "^21.1.0",
+    "@angular/cdk": "^21.1.5",
+    "@angular/cli": "^21.1.0",
+    "@angular/common": "^21.1.0",
+    "@angular/compiler": "^21.1.0",
+    "@angular/compiler-cli": "^21.1.0",
+    "@angular/core": "^21.1.0",
+    "@angular/forms": "^21.1.4",
+    "@angular/material": "^21.1.5",
+    "@angular/platform-browser": "^21.1.0",
+    "@google/genai": "^1.41.0",
+    "jspdf": "^4.2.0",
+    "jspdf-autotable": "^5.0.7",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.1",
+    "@types/node": "^22.14.0",
+    "autoprefixer": "^10.4.24",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.2.1",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}

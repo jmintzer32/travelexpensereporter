@@ -1,0 +1,284 @@
+
+<main class="min-h-screen bg-slate-50/50 p-4 sm:p-8 lg:p-12">
+  <div class="max-w-6xl mx-auto">
+    
+    <!-- Header: Editorial Style -->
+    <header class="mb-16 text-center lg:text-left">
+      <div class="inline-flex items-center justify-center w-12 h-12 bg-indigo-600 text-white rounded-xl shadow-indigo-200 shadow-lg mb-6">
+        <mat-icon class="!text-2xl !w-auto !h-auto">receipt_long</mat-icon>
+      </div>
+      <h1 class="text-5xl font-bold tracking-tight text-slate-900 mb-4">Travel Expense Reporter</h1>
+      <p class="text-xl text-slate-500 max-w-2xl leading-relaxed">
+        Effortlessly extract and categorize expenses from your credit card statements. 
+        Define your trip dates and let AI handle the itemization.
+      </p>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+      
+      <!-- Left Column: Configuration (Clean Utility) -->
+      <div class="lg:col-span-5 space-y-8">
+        
+        <!-- Step 1: Upload -->
+        <section class="bg-white rounded-3xl shadow-sm border border-slate-200 p-8">
+          <div class="flex items-center gap-4 mb-6">
+            <div class="flex items-center justify-center w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl">
+              <mat-icon class="!text-xl !w-auto !h-auto">upload_file</mat-icon>
+            </div>
+            <div>
+              <h2 class="text-lg font-bold text-slate-900">1. Upload Statements</h2>
+              <p class="text-xs text-slate-400 font-medium uppercase tracking-wider">PDF, CSV, or TXT</p>
+            </div>
+          </div>
+          
+          <div class="relative group">
+            <input 
+              id="file-upload" 
+              type="file" 
+              class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+              multiple 
+              accept=".pdf, .csv, .txt, text/plain, application/pdf" 
+              (change)="onFileChange($event)"
+            >
+            <div class="border-2 border-dashed border-slate-200 group-hover:border-indigo-400 group-hover:bg-indigo-50/50 rounded-2xl p-10 text-center transition-all duration-300">
+              <mat-icon class="text-slate-300 group-hover:text-indigo-500 mb-3 !text-4xl !w-auto !h-auto">cloud_upload</mat-icon>
+              <p class="text-sm font-semibold text-slate-600">Drop your files here</p>
+              <p class="text-xs text-slate-400 mt-1">or click to browse</p>
+            </div>
+          </div>
+
+          @if (uploadedFiles().length > 0) {
+            <div class="mt-6 space-y-3">
+              @for (file of uploadedFiles(); track file.name) {
+                <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100 group animate-in fade-in slide-in-from-left-2">
+                  <div class="flex items-center min-w-0 gap-3">
+                    <mat-icon class="text-slate-400 !text-xl !w-auto !h-auto">description</mat-icon>
+                    <span class="text-sm font-medium text-slate-700 truncate max-w-[180px]" [title]="file.name">{{ file.name }}</span>
+                  </div>
+                  <button (click)="removeFile(file.name)" class="p-1.5 text-slate-400 hover:bg-rose-100 hover:text-rose-600 rounded-lg transition-all">
+                    <mat-icon class="!text-lg !w-auto !h-auto">close</mat-icon>
+                  </button>
+                </div>
+              }
+            </div>
+          }
+        </section>
+
+        <!-- Step 2: Trips -->
+        <section class="bg-white rounded-3xl shadow-sm border border-slate-200 p-8">
+          <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-4">
+              <div class="flex items-center justify-center w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl">
+                <mat-icon class="!text-xl !w-auto !h-auto">event</mat-icon>
+              </div>
+              <div>
+                <h2 class="text-lg font-bold text-slate-900">2. Define Trips</h2>
+                <p class="text-xs text-slate-400 font-medium uppercase tracking-wider">Date Ranges</p>
+              </div>
+            </div>
+            <button (click)="addTrip()" class="text-sm font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 transition-colors">
+              <mat-icon class="!text-lg !w-auto !h-auto">add</mat-icon>
+              Add Trip
+            </button>
+          </div>
+
+          <div class="space-y-4">
+            @for (trip of trips(); track trip.id; let i = $index) {
+              <div class="p-5 bg-slate-50 rounded-2xl border border-slate-100 relative group transition-all hover:shadow-md hover:bg-white">
+                <button 
+                  (click)="removeTrip(trip.id)" 
+                  class="absolute -top-2 -right-2 w-7 h-7 bg-white shadow-md border border-slate-200 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100"
+                >
+                  <mat-icon class="!text-sm !w-auto !h-auto">close</mat-icon>
+                </button>
+                
+                <div class="grid grid-cols-2 gap-6">
+                  <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Start Date</label>
+                    <input 
+                      type="date" 
+                      [value]="trip.startDate" 
+                      (change)="updateTripDate(trip.id, 'startDate', $any($event.target).value)" 
+                      class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                    >
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">End Date</label>
+                    <input 
+                      type="date" 
+                      [value]="trip.endDate" 
+                      (change)="updateTripDate(trip.id, 'endDate', $any($event.target).value)" 
+                      class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                    >
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+
+        <!-- Action -->
+        <div class="space-y-4">
+          <button 
+            (click)="generateReport()" 
+            [disabled]="isLoading()" 
+            class="w-full py-5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white font-bold rounded-3xl shadow-xl shadow-indigo-100 hover:shadow-indigo-200 transition-all duration-300 flex items-center justify-center gap-3 group"
+          >
+            @if (isLoading()) {
+              <div class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              <span class="tracking-tight">Analyzing Statements...</span>
+            } @else {
+              <mat-icon class="group-hover:rotate-12 transition-transform">auto_awesome</mat-icon>
+              <span class="text-lg tracking-tight">Generate Expense Reports</span>
+            }
+          </button>
+
+          @if (reports()) {
+            <button 
+              (click)="exportPdf()" 
+              class="w-full py-4 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 flex items-center justify-center gap-3 group"
+            >
+              <mat-icon class="text-rose-500 group-hover:scale-110 transition-transform">picture_as_pdf</mat-icon>
+              <span class="tracking-tight">Export to PDF</span>
+            </button>
+          }
+
+          @if (errorMessage()) {
+            <div class="p-5 bg-rose-50 border border-rose-100 rounded-2xl text-rose-800 text-sm animate-in shake duration-500">
+              <div class="flex gap-4 items-start">
+                <mat-icon class="text-rose-500 !w-auto !h-auto shrink-0 mt-0.5">error_outline</mat-icon>
+                <div class="flex-1">
+                  <p class="font-medium leading-relaxed">{{ errorMessage() }}</p>
+                  
+                  @if (errorDetails()) {
+                    <div class="mt-3">
+                      <button 
+                        (click)="showErrorDetails.set(!showErrorDetails())"
+                        class="text-xs font-bold uppercase tracking-wider text-rose-600 hover:text-rose-800 flex items-center gap-1 transition-colors"
+                      >
+                        {{ showErrorDetails() ? 'Hide' : 'Show' }} Technical Details
+                        <mat-icon class="!text-sm !w-auto !h-auto transition-transform" [class.rotate-180]="showErrorDetails()">expand_more</mat-icon>
+                      </button>
+                      
+                      @if (showErrorDetails()) {
+                        <div class="mt-2 p-3 bg-white/50 rounded-lg border border-rose-100 font-mono text-xs overflow-x-auto whitespace-pre-wrap text-rose-900">
+                          {{ errorDetails() }}
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Right Column: Results (Data Grid Style) -->
+      <div class="lg:col-span-7">
+        @if (reports(); as reportList) {
+          <div class="space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-700">
+            @for (report of reportList; track report.trip.startDate) {
+              <div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden">
+                <!-- Report Header -->
+                <div class="bg-slate-50/80 px-8 py-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+                  <div>
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="w-2 h-2 bg-indigo-600 rounded-full"></span>
+                      <h3 class="text-xl font-bold text-slate-900">Trip Report</h3>
+                    </div>
+                    <p class="text-sm font-medium text-slate-400 tracking-tight">
+                      {{ report.trip.startDate | date:'longDate' }} &mdash; {{ report.trip.endDate | date:'longDate' }}
+                    </p>
+                  </div>
+                  <div class="bg-white px-6 py-3 rounded-2xl shadow-sm border border-slate-100 text-right">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Expenses</p>
+                    <p class="text-3xl font-bold text-indigo-600 tracking-tighter">{{ report.total | currency }}</p>
+                  </div>
+                </div>
+
+                <!-- Expenses Table -->
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left border-collapse">
+                    <thead>
+                      <tr class="border-b border-slate-50">
+                        <th class="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date</th>
+                        <th class="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Merchant & Details</th>
+                        <th class="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Category</th>
+                        <th class="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-50">
+                      @for (expense of report.expenses; track $index) {
+                        <tr class="group hover:bg-slate-50/50 transition-colors">
+                          <td class="px-8 py-6 whitespace-nowrap">
+                            <div class="text-sm font-bold text-slate-900">{{ expense.date | date:'MMM d' }}</div>
+                            <div class="text-[10px] text-slate-400 font-medium">{{ expense.date | date:'yyyy' }}</div>
+                          </td>
+                          <td class="px-8 py-6">
+                            <div class="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{{ expense.merchant }}</div>
+                            <div class="text-xs text-slate-400 truncate max-w-[240px] mt-0.5">{{ expense.description }}</div>
+                            @if (expense.zipCode && expense.zipCode !== 'N/A') {
+                              <div class="flex items-center gap-1 mt-1.5">
+                                <mat-icon class="!text-[10px] !w-auto !h-auto text-indigo-400">location_on</mat-icon>
+                                <span class="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">Zip: {{ expense.zipCode }}</span>
+                              </div>
+                            }
+                          </td>
+                          <td class="px-8 py-6">
+                            <span [class]="'inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ' + getCategoryClass(expense.category)">
+                              {{ expense.category }}
+                            </span>
+                          </td>
+                          <td class="px-8 py-6 whitespace-nowrap text-right">
+                            <div class="text-sm font-bold text-slate-900">{{ expense.amount | currency }}</div>
+                          </td>
+                        </tr>
+                      }
+                      @if (report.expenses.length === 0) {
+                        <tr>
+                          <td colspan="4" class="px-8 py-20 text-center">
+                            <mat-icon class="text-slate-200 !text-5xl !w-auto !h-auto mb-4">search_off</mat-icon>
+                            <h4 class="text-slate-900 font-bold">No Expenses Found</h4>
+                            <p class="text-sm text-slate-400 mt-1">Try adjusting your trip dates or check your statement content.</p>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            }
+          </div>
+        } @else if (!isLoading()) {
+          <!-- Empty State -->
+          <div class="h-full min-h-[600px] flex flex-col items-center justify-center text-center p-12 bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
+            <div class="w-24 h-24 bg-slate-50 rounded-3xl flex items-center justify-center mb-8 shadow-inner">
+              <mat-icon class="text-slate-200 !text-5xl !w-auto !h-auto">insights</mat-icon>
+            </div>
+            <h3 class="text-2xl font-bold text-slate-900 mb-3 tracking-tight">Ready to Analyze</h3>
+            <p class="text-slate-400 max-w-sm leading-relaxed">
+              Upload your credit card statements and define your trip periods to see your itemized travel expenses here.
+            </p>
+            <div class="mt-10 flex gap-4">
+              <div class="flex flex-col items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-400">1</div>
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Upload</span>
+              </div>
+              <div class="w-8 h-px bg-slate-100 mt-4"></div>
+              <div class="flex flex-col items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-400">2</div>
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Define</span>
+              </div>
+              <div class="w-8 h-px bg-slate-100 mt-4"></div>
+              <div class="flex flex-col items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-400">3</div>
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Report</span>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+</main>

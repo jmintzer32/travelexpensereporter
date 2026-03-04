@@ -1,0 +1,5 @@
+{
+  "name": "Travel Expense Reporter",
+  "description": "Import your credit card statements to automatically generate an itemized list of expenses for specific trip dates.",
+  "requestFramePermissions": []
+}
