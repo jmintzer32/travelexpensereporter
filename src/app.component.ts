@@ -7,6 +7,10 @@ import { Expense } from './models/expense.model';
 import { Trip } from './models/trip.model';
 import { TripReport } from './models/trip-report.model';
 import { MatIconModule } from '@angular/material/icon';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -20,7 +24,15 @@ interface UploadedFile {
   templateUrl: './app.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule],
+  imports: [
+    CommonModule, 
+    FormsModule, 
+    MatIconModule, 
+    MatDatepickerModule, 
+    MatNativeDateModule, 
+    MatFormFieldModule, 
+    MatInputModule
+  ],
 })
 export class AppComponent {
   private readonly geminiService = inject(GeminiService);
@@ -98,8 +110,12 @@ export class AppComponent {
     }
   }
 
-  private formatDateForInput(date: Date): string {
-    return date.toISOString().split('T')[0];
+  formatDateForInput(date: Date | null): string {
+    if (!date) return '';
+    // Ensure we work with local time to avoid timezone shifts
+    const offset = date.getTimezoneOffset();
+    const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split('T')[0];
   }
 
   addTrip(): void {
@@ -318,12 +334,13 @@ export class AppComponent {
         expense.merchant,
         expense.description,
         expense.category,
+        expense.zipCode || 'N/A',
         `$${expense.amount.toFixed(2)}`
       ]);
 
       autoTable(doc, {
         startY: yPos,
-        head: [['Date', 'Merchant', 'Description', 'Category', 'Amount']],
+        head: [['Date', 'Merchant', 'Description', 'Category', 'Zip Code', 'Amount']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [79, 70, 229] }, // Indigo 600
@@ -333,7 +350,8 @@ export class AppComponent {
           1: { cellWidth: 35 },
           2: { cellWidth: 'auto' },
           3: { cellWidth: 25 },
-          4: { cellWidth: 25, halign: 'right' }
+          4: { cellWidth: 20 },
+          5: { cellWidth: 25, halign: 'right' }
         },
         didDrawPage: (data) => {
           // Reset yPos for next loop iteration if it spans multiple pages

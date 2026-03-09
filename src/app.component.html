@@ -92,24 +92,25 @@
                   <mat-icon class="!text-sm !w-auto !h-auto">close</mat-icon>
                 </button>
                 
-                <div class="grid grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <!-- Start Date -->
                   <div>
                     <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Start Date</label>
-                    <input 
-                      type="date" 
-                      [value]="trip.startDate" 
-                      (change)="updateTripDate(trip.id, 'startDate', $any($event.target).value)" 
-                      class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-                    >
+                    <mat-form-field appearance="outline" class="w-full bg-white rounded-xl overflow-hidden" subscriptSizing="dynamic">
+                      <input matInput [matDatepicker]="startPicker" [value]="trip.startDate" (dateChange)="updateTripDate(trip.id, 'startDate', formatDateForInput($event.value))" placeholder="Select start date">
+                      <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
+                      <mat-datepicker #startPicker></mat-datepicker>
+                    </mat-form-field>
                   </div>
+
+                  <!-- End Date -->
                   <div>
                     <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">End Date</label>
-                    <input 
-                      type="date" 
-                      [value]="trip.endDate" 
-                      (change)="updateTripDate(trip.id, 'endDate', $any($event.target).value)" 
-                      class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-                    >
+                    <mat-form-field appearance="outline" class="w-full bg-white rounded-xl overflow-hidden" subscriptSizing="dynamic">
+                      <input matInput [matDatepicker]="endPicker" [value]="trip.endDate" [min]="trip.startDate" (dateChange)="updateTripDate(trip.id, 'endDate', formatDateForInput($event.value))" placeholder="Select end date">
+                      <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
+                      <mat-datepicker #endPicker></mat-datepicker>
+                    </mat-form-field>
                   </div>
                 </div>
               </div>
