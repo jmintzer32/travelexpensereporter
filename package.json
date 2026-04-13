@@ -24,7 +24,8 @@
     "@google/genai": "^1.41.0",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.1",

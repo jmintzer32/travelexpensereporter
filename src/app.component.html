@@ -96,21 +96,24 @@
                   <!-- Start Date -->
                   <div>
                     <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Start Date</label>
-                    <mat-form-field appearance="outline" class="w-full bg-white rounded-xl overflow-hidden" subscriptSizing="dynamic">
-                      <input matInput [matDatepicker]="startPicker" [value]="trip.startDate" (dateChange)="updateTripDate(trip.id, 'startDate', formatDateForInput($event.value))" placeholder="Select start date">
-                      <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
-                      <mat-datepicker #startPicker></mat-datepicker>
-                    </mat-form-field>
+                    <input 
+                      type="date" 
+                      class="w-full bg-white rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      [ngModel]="trip.startDate" 
+                      (ngModelChange)="updateTripDate(trip.id, 'startDate', $event)" 
+                    >
                   </div>
 
                   <!-- End Date -->
                   <div>
                     <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">End Date</label>
-                    <mat-form-field appearance="outline" class="w-full bg-white rounded-xl overflow-hidden" subscriptSizing="dynamic">
-                      <input matInput [matDatepicker]="endPicker" [value]="trip.endDate" [min]="trip.startDate" (dateChange)="updateTripDate(trip.id, 'endDate', formatDateForInput($event.value))" placeholder="Select end date">
-                      <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
-                      <mat-datepicker #endPicker></mat-datepicker>
-                    </mat-form-field>
+                    <input 
+                      type="date" 
+                      class="w-full bg-white rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      [ngModel]="trip.endDate" 
+                      [min]="trip.startDate"
+                      (ngModelChange)="updateTripDate(trip.id, 'endDate', $event)" 
+                    >
                   </div>
                 </div>
               </div>
@@ -135,13 +138,23 @@
           </button>
 
           @if (reports()) {
-            <button 
-              (click)="exportPdf()" 
-              class="w-full py-4 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 flex items-center justify-center gap-3 group"
-            >
-              <mat-icon class="text-rose-500 group-hover:scale-110 transition-transform">picture_as_pdf</mat-icon>
-              <span class="tracking-tight">Export to PDF</span>
-            </button>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <button 
+                (click)="exportPdf()" 
+                class="w-full py-4 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 flex items-center justify-center gap-3 group"
+              >
+                <mat-icon class="text-rose-500 group-hover:scale-110 transition-transform">picture_as_pdf</mat-icon>
+                <span class="tracking-tight">Export to PDF</span>
+              </button>
+
+              <button 
+                (click)="sendToCoupa()" 
+                class="w-full py-4 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 flex items-center justify-center gap-3 group"
+              >
+                <mat-icon class="text-teal-500 group-hover:scale-110 transition-transform">extension</mat-icon>
+                <span class="tracking-tight">Send to Coupa</span>
+              </button>
+            </div>
           }
 
           @if (errorMessage()) {

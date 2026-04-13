@@ -7,12 +7,9 @@ import { Expense } from './models/expense.model';
 import { Trip } from './models/trip.model';
 import { TripReport } from './models/trip-report.model';
 import { MatIconModule } from '@angular/material/icon';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 interface UploadedFile {
   name: string;
@@ -27,11 +24,7 @@ interface UploadedFile {
   imports: [
     CommonModule, 
     FormsModule, 
-    MatIconModule, 
-    MatDatepickerModule, 
-    MatNativeDateModule, 
-    MatFormFieldModule, 
-    MatInputModule
+    MatIconModule
   ],
 })
 export class AppComponent {
@@ -179,6 +172,7 @@ export class AppComponent {
         const fileReadPromises = uniqueNewFiles.map(file => {
             return new Promise<UploadedFile>((resolve, reject) => {
                 const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+                const isExcelOrCsv = file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls') || file.name.toLowerCase().endsWith('.csv');
                 
                 if (isPdf) {
                     const reader = new FileReader();
@@ -218,6 +212,28 @@ export class AppComponent {
                         }
                     };
                     reader.onerror = () => reject(new Error(`Error reading PDF file: ${file.name}`));
+                    reader.readAsArrayBuffer(file);
+                } else if (isExcelOrCsv) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = new Uint8Array(e.target!.result as ArrayBuffer);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            let textContent = '';
+                            
+                            workbook.SheetNames.forEach(sheetName => {
+                                const sheet = workbook.Sheets[sheetName];
+                                const csv = XLSX.utils.sheet_to_csv(sheet);
+                                textContent += `--- Sheet: ${sheetName} ---\n${csv}\n\n`;
+                            });
+                            
+                            resolve({ name: file.name, content: textContent });
+                        } catch (err) {
+                            console.error('Excel/CSV Parsing Error:', err);
+                            reject(new Error(`Error parsing Excel/CSV file: ${file.name}`));
+                        }
+                    };
+                    reader.onerror = () => reject(new Error(`Error reading file: ${file.name}`));
                     reader.readAsArrayBuffer(file);
                 } else {
                     const reader = new FileReader();
@@ -365,5 +381,21 @@ export class AppComponent {
     });
 
     doc.save('expense-report.pdf');
+  }
+
+  sendToCoupa(): void {
+    const reports = this.reports();
+    if (!reports || reports.length === 0) return;
+
+    // Flatten all expenses from all trips into one array for the extension
+    const allExpenses = reports.flatMap(r => r.expenses);
+
+    // Dispatch a custom event that the extension content script will listen for
+    const event = new CustomEvent('SYNC_COUPA_EXPENSES', { 
+      detail: allExpenses 
+    });
+    window.dispatchEvent(event);
+    
+    alert(`Sent ${allExpenses.length} expenses to the Chrome Extension!\n\n1. Open your Coupa Expense Report tab.\n2. Click the Extension icon in your browser toolbar.\n3. Click "Fill Coupa Report".`);
   }
 }
