@@ -116,15 +116,23 @@ export class GeminiService {
         },
       });
 
-      const jsonText = response.text.trim();
+      let jsonText = response.text.trim();
+      // Remove markdown code blocks if the model accidentally includes them despite responseMimeType
+      if (jsonText.startsWith('```json')) {
+        jsonText = jsonText.replace(/^```json\n/, '').replace(/\n```$/, '');
+      } else if (jsonText.startsWith('```')) {
+        jsonText = jsonText.replace(/^```\n/, '').replace(/\n```$/, '');
+      }
+      
       const parsedResult = JSON.parse(jsonText) as Expense[];
       
       // Sort expenses by date
       return parsedResult.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error calling Gemini API:', error);
-      throw new Error('Failed to process the statement with the AI model.');
+      const errorMessage = error?.message || String(error);
+      throw new Error(`Failed to process the statement with the AI model. Details: ${errorMessage}`);
     }
   }
 }

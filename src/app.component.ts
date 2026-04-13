@@ -223,8 +223,11 @@ export class AppComponent {
                             
                             workbook.SheetNames.forEach(sheetName => {
                                 const sheet = workbook.Sheets[sheetName];
-                                const csv = XLSX.utils.sheet_to_csv(sheet);
-                                textContent += `--- Sheet: ${sheetName} ---\n${csv}\n\n`;
+                                // Use blankrows: false to avoid massive strings of empty commas
+                                const csv = XLSX.utils.sheet_to_csv(sheet, { blankrows: false });
+                                if (csv.trim()) {
+                                    textContent += `--- Sheet: ${sheetName} ---\n${csv}\n\n`;
+                                }
                             });
                             
                             resolve({ name: file.name, content: textContent });
