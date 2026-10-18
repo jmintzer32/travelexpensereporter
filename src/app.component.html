@@ -116,6 +116,70 @@
                     >
                   </div>
                 </div>
+
+                <div class="grid grid-cols-1 gap-4 mt-4">
+                  <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Business Purpose <span class="normal-case tracking-normal font-medium">(for Coupa)</span></label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Client meetings in Chicago"
+                      class="w-full bg-white rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      [ngModel]="trip.purpose" 
+                      (change)="updateTripDetail(trip.id, 'purpose', $any($event.target).value)" 
+                    >
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Coupa Report Name <span class="normal-case tracking-normal font-medium">(optional)</span></label>
+                    <input 
+                      type="text" 
+                      [placeholder]="defaultReportTitle(trip.startDate)"
+                      class="w-full bg-white rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      [ngModel]="trip.reportTitle" 
+                      (change)="updateTripDetail(trip.id, 'reportTitle', $any($event.target).value)" 
+                    >
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Project <span class="normal-case tracking-normal font-medium">(Coupa cost code)</span></label>
+                    <select
+                      class="w-full bg-white rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      [ngModel]="addingProjectFor() === trip.id ? '__new' : (trip.projectId || '')"
+                      (ngModelChange)="selectProject(trip.id, $event)"
+                    >
+                      <option value="">No project (my default cost center)</option>
+                      @for (p of projects(); track p.id) {
+                        <option [value]="p.id">{{ projectLabel(p) }}</option>
+                      }
+                      <option value="__new">+ Add a project…</option>
+                    </select>
+                  </div>
+                  @if (addingProjectFor() === trip.id) {
+                    <div class="p-4 bg-white rounded-xl border border-indigo-200 space-y-3">
+                      <div class="grid grid-cols-2 gap-3">
+                        <input #pCompany type="text" placeholder="Company code (e.g. 4010)" class="w-full bg-white rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+                        <input #pNumber type="text" placeholder="Project (e.g. 12345B1)" class="w-full bg-white rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+                      </div>
+                      <div class="grid grid-cols-2 gap-3">
+                        <input #pName type="text" placeholder="Name (e.g. Main St Tower)" class="w-full bg-white rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+                        <input #pWbs type="text" placeholder="WBS element" [value]="defaultWbs" class="w-full bg-white rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+                      </div>
+                      <div class="flex gap-2">
+                        <button (click)="addProject(trip.id, pCompany.value, pNumber.value, pName.value, pWbs.value)" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl">Add project</button>
+                        <button (click)="addingProjectFor.set(null)" class="px-4 py-2 text-slate-500 hover:text-slate-800 text-sm font-bold">Cancel</button>
+                      </div>
+                    </div>
+                  } @else if (trip.projectId) {
+                    <div>
+                      <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">WBS Element <span class="normal-case tracking-normal font-medium">(if not the usual)</span></label>
+                      <input 
+                        type="text" 
+                        [placeholder]="projectWbs(trip.projectId)"
+                        class="w-full bg-white rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                        [ngModel]="trip.wbs" 
+                        (change)="updateTripDetail(trip.id, 'wbs', $any($event.target).value)" 
+                      >
+                    </div>
+                  }
+                </div>
               </div>
             }
           </div>
@@ -137,24 +201,16 @@
             }
           </button>
 
-          @if (reports()) {
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <button 
-                (click)="exportPdf()" 
-                class="w-full py-4 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 flex items-center justify-center gap-3 group"
-              >
-                <mat-icon class="text-rose-500 group-hover:scale-110 transition-transform">picture_as_pdf</mat-icon>
-                <span class="tracking-tight">Export to PDF</span>
-              </button>
+          @if (reports(); as reportList) {
+            <button 
+              (click)="exportPdf()" 
+              class="w-full py-4 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 flex items-center justify-center gap-3 group"
+            >
+              <mat-icon class="text-rose-500 group-hover:scale-110 transition-transform">picture_as_pdf</mat-icon>
+              <span class="tracking-tight">Export to PDF</span>
+            </button>
 
-              <button 
-                (click)="sendToCoupa()" 
-                class="w-full py-4 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 flex items-center justify-center gap-3 group"
-              >
-                <mat-icon class="text-teal-500 group-hover:scale-110 transition-transform">extension</mat-icon>
-                <span class="tracking-tight">Send to Coupa</span>
-              </button>
-            </div>
+            <app-coupa-panel [reports]="reportList" [trips]="trips()" />
           }
 
           @if (errorMessage()) {
@@ -192,7 +248,7 @@
       <div class="lg:col-span-7">
         @if (reports(); as reportList) {
           <div class="space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-700">
-            @for (report of reportList; track report.trip.startDate) {
+            @for (report of reportList; track report.trip.startDate; let ri = $index) {
               <div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden">
                 <!-- Report Header -->
                 <div class="bg-slate-50/80 px-8 py-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
@@ -243,6 +299,19 @@
                             <span [class]="'inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ' + getCategoryClass(expense.category)">
                               {{ expense.category }}
                             </span>
+                            @if (projects().length) {
+                              <select
+                                class="block mt-2 max-w-[11rem] bg-transparent text-[11px] text-slate-500 border-0 border-b border-dashed border-slate-200 focus:outline-none focus:border-indigo-400 py-0.5"
+                                title="Coupa project for this line"
+                                [ngModel]="expense.projectId || ''"
+                                (ngModelChange)="setExpenseProject(ri, $index, $event)"
+                              >
+                                <option value="">{{ tripProjectName(report.trip.id) }}</option>
+                                @for (p of projects(); track p.id) {
+                                  <option [value]="p.id">{{ projectLabel(p) }}</option>
+                                }
+                              </select>
+                            }
                           </td>
                           <td class="px-8 py-6 whitespace-nowrap text-right">
                             <div class="text-sm font-bold text-slate-900">{{ expense.amount | currency }}</div>

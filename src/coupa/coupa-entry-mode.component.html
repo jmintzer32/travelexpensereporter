@@ -1,0 +1,98 @@
+<div class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-stretch justify-center p-0 sm:p-6">
+  <div class="bg-white w-full max-w-5xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+    <!-- Header -->
+    <div class="flex items-center gap-4 px-6 py-4 border-b border-slate-100">
+      <div class="flex items-center justify-center w-10 h-10 bg-teal-50 text-teal-600 rounded-xl shrink-0">
+        <mat-icon class="!text-xl !w-auto !h-auto">content_paste_go</mat-icon>
+      </div>
+      <div class="flex-1 min-w-0">
+        <h2 class="text-lg font-bold text-slate-900">Coupa entry mode</h2>
+        <p class="text-xs text-slate-400">{{ doneCount() }} of {{ lines().length }} lines entered</p>
+      </div>
+      <button (click)="resetProgress()" class="text-xs font-bold text-slate-400 hover:text-slate-700 uppercase tracking-wider px-2">Reset</button>
+      <button (click)="closed.emit()" class="w-9 h-9 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-500" aria-label="Close">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    <div class="h-1 bg-slate-100">
+      <div class="h-full bg-teal-500 transition-all" [style.width.%]="lines().length ? (doneCount() / lines().length) * 100 : 0"></div>
+    </div>
+
+    <div class="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[300px_1fr]">
+      <!-- Line list -->
+      <ol class="overflow-y-auto border-b md:border-b-0 md:border-r border-slate-100 max-h-48 md:max-h-none">
+        @for (l of lines(); track $index) {
+          @if (trips().length > 1 && startsTrip($index)) {
+            <li class="px-4 pt-4 pb-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ l.tripTitle }}</li>
+          }
+          <li>
+            <button
+              (click)="select($index)"
+              class="w-full text-left flex items-start gap-3 px-4 py-3 border-l-4 transition-colors"
+              [class]="$index === current() ? 'border-indigo-500 bg-indigo-50/60' : 'border-transparent hover:bg-slate-50'"
+            >
+              <span
+                (click)="$event.stopPropagation(); toggleDone($index)"
+                class="mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center shrink-0 cursor-pointer"
+                [class]="isDone($index) ? 'bg-teal-500 border-teal-500 text-white' : 'border-slate-300 text-transparent'"
+                role="checkbox"
+                [attr.aria-checked]="isDone($index)"
+              >
+                <mat-icon class="!text-sm !w-auto !h-auto">check</mat-icon>
+              </span>
+              <span class="flex-1 min-w-0">
+                <span class="block text-sm font-bold truncate" [class.text-slate-400]="isDone($index)" [class.line-through]="isDone($index)">{{ l.merchant }}</span>
+                <span class="block text-[11px] text-slate-400">{{ l.date }} · {{ l.expenseType }}</span>
+              </span>
+              <span class="text-sm font-bold text-slate-700 tabular-nums">{{ l.amount }}</span>
+            </button>
+          </li>
+        }
+      </ol>
+
+      <!-- Current line -->
+      <div class="overflow-y-auto p-6 flex flex-col gap-4">
+        @if (line(); as l) {
+          <div class="flex items-center justify-between gap-4">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ l.tripTitle }} · Line {{ current() + 1 }} of {{ lines().length }}</p>
+            @if (isDone(current())) {
+              <span class="text-[10px] font-bold uppercase tracking-widest text-teal-600">Entered</span>
+            }
+          </div>
+
+          <div class="flex flex-col gap-2">
+            @for (f of fields(); track f.key; let i = $index) {
+              <button
+                (click)="copy(f, i)"
+                class="group text-left flex items-center gap-4 px-4 py-3 rounded-2xl border transition-all"
+                [class]="i === nextField() ? 'border-indigo-300 bg-indigo-50/50 ring-2 ring-indigo-100' : copiedKey() === f.key ? 'border-teal-200 bg-teal-50/40' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'"
+              >
+                <kbd class="w-6 h-6 rounded-md bg-slate-100 text-slate-500 text-xs font-bold flex items-center justify-center shrink-0">{{ i + 1 }}</kbd>
+                <span class="w-28 shrink-0 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ f.label }}</span>
+                <span class="flex-1 min-w-0 text-sm font-semibold text-slate-900 break-words">{{ l[f.key] }}</span>
+                <mat-icon class="shrink-0 !text-lg !w-auto !h-auto" [class]="copiedKey() === f.key ? 'text-teal-500' : 'text-slate-300 group-hover:text-indigo-500'">
+                  {{ copiedKey() === f.key ? 'check' : 'content_copy' }}
+                </mat-icon>
+              </button>
+            }
+          </div>
+
+          <button
+            (click)="markDoneAndAdvance()"
+            class="mt-2 w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all"
+            [class]="nextField() >= fields().length ? 'bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-100' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'"
+          >
+            <mat-icon>done_all</mat-icon>
+            Mark entered &amp; next line
+          </button>
+
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Put this window beside Coupa. Press <kbd class="px-1.5 py-0.5 rounded bg-slate-100 font-bold">Enter</kbd> to copy the highlighted field, then paste it into Coupa and come back.
+            <kbd class="px-1.5 py-0.5 rounded bg-slate-100 font-bold">1</kbd>–<kbd class="px-1.5 py-0.5 rounded bg-slate-100 font-bold">9</kbd> copy a specific field,
+            <kbd class="px-1.5 py-0.5 rounded bg-slate-100 font-bold">↑</kbd>/<kbd class="px-1.5 py-0.5 rounded bg-slate-100 font-bold">↓</kbd> change line.
+          </p>
+        }
+      </div>
+    </div>
+  </div>
+</div>

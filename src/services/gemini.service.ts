@@ -2,6 +2,7 @@
 import { Injectable } from '@angular/core';
 import { GoogleGenAI, Type } from '@google/genai';
 import { Expense } from '../models/expense.model';
+import { EXPENSE_CATEGORIES } from '../models/expense-categories';
 
 @Injectable({
   providedIn: 'root',
@@ -61,7 +62,7 @@ export class GeminiService {
       3. For each valid transaction, identify its date, merchant name, a detailed transaction description, the merchant's zip code, and the amount.
       4. If a transaction is categorized as 'Meals' or 'Lodging', you MUST find the merchant's zip code, even if it's not present in the statement. You can infer it from the merchant's name and any available location details. For all other categories, provide the zip code only if it's directly available.
       5. If a merchant's zip code cannot be found or reasonably inferred, you MUST return "N/A" for the zipCode field. Do not leave it blank.
-      6. Categorize each transaction into one of the following travel expense categories: 'Airfare', 'Lodging', 'Meals', 'Transportation', 'Entertainment', or 'Other'.
+      6. Categorize each transaction into exactly one of these categories: ${EXPENSE_CATEGORIES.map(c => `'${c}'`).join(', ')}. Use 'Fuel' for gas stations, 'Taxi & Ride Share' for Uber, Lyft, taxis and public transit, 'Parking & Tolls' for parking garages, parking apps and tolls, 'Travel Fees' for airline baggage, seat, upgrade and early-boarding fees, and 'Supplies' for hardware, office and jobsite supply stores.
       7. The amount should be a positive number, representing an expense. Ignore payments or credits to the account.
       8. Provide the output as a valid JSON array of objects, strictly adhering to the provided schema.
       9. If no transactions are found in the date range, return an empty array.
@@ -91,7 +92,7 @@ export class GeminiService {
             },
             category: {
               type: Type.STRING,
-              description: "The expense category (e.g., 'Airfare', 'Lodging', 'Meals', 'Transportation', 'Entertainment', 'Other').",
+              description: `The expense category, one of: ${EXPENSE_CATEGORIES.join(', ')}.`,
             },
             amount: {
               type: Type.NUMBER,
