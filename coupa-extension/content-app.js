@@ -15,7 +15,7 @@ window.addEventListener('SYNC_COUPA_EXPENSES', (event) => {
     console.error('Coupa Filler: could not read expenses from the app', e);
     return;
   }
-  if (!payload || payload.source !== 'travel-expense-reporter' || !Array.isArray(payload.lines)) {
+  if (!payload || payload.source !== 'travel-expense-reporter' || !Array.isArray(payload.trips)) {
     return;
   }
   chrome.runtime.sendMessage({ type: 'SAVE_EXPENSES', data: payload });

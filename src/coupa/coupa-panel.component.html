@@ -5,7 +5,7 @@
     </div>
     <div class="flex-1">
       <h2 class="text-lg font-bold text-slate-900">4. Enter into Coupa</h2>
-      <p class="text-xs text-slate-400 font-medium uppercase tracking-wider">{{ lines().length }} lines ready</p>
+      <p class="text-xs text-slate-400 font-medium uppercase tracking-wider">{{ coupaTrips().length }} {{ coupaTrips().length === 1 ? 'report' : 'reports' }} · {{ lineCount() }} lines</p>
     </div>
     <button
       (click)="showSettings.set(!showSettings())"
@@ -21,7 +21,7 @@
   @if (showSettings()) {
     <div class="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
       <p class="text-xs text-slate-500 leading-relaxed">
-        These decide exactly what gets typed into Coupa. Use your company’s Coupa expense type names, spelled exactly as they appear in Coupa.
+        These decide exactly what gets typed into Coupa. Use your company’s Coupa expense category names, spelled as they appear in Coupa’s Expense Category list. If one doesn’t match, the Coupa Filler panel lists the choices Coupa offers.
       </p>
       <div class="grid grid-cols-2 gap-3">
         <label class="block">
@@ -46,8 +46,16 @@
           >
         </label>
       </div>
+      <label class="block">
+        <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Business purpose when a trip has none</span>
+        <input
+          class="w-full bg-white rounded-xl border border-slate-200 px-3 py-2 text-sm"
+          [ngModel]="settings().defaultPurpose"
+          (change)="setDefaultPurpose($any($event.target).value)"
+        >
+      </label>
       <div>
-        <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Expense type in Coupa</span>
+        <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Expense Category in Coupa</span>
         <div class="space-y-2">
           @for (c of categories; track c) {
             <label class="flex items-center gap-3">
@@ -133,8 +141,8 @@
         <li>Here, click <b>Copy for bookmarklet</b>.</li>
         <li>In Coupa, open your expense report and click the <b>Coupa Filler</b> bookmark. Paste into the panel that appears.</li>
         <li>
-          First time only: open the panel’s <b>Setup</b> tab and use <b>Pick</b> to point at Coupa’s “Add line” and “Save” buttons and each field.
-          After that, click <b>Fill next</b> for each line.
+          For each trip, click <b>New Coupa report for this trip</b> (or open a report and click <b>Use open report</b>), then <b>Fill next</b> for each line.
+          Pick the next trip from the panel’s list when one is done.
         </li>
         <li class="text-slate-400">When this app updates the bookmarklet, drag it to your bookmarks bar again. Your Coupa setup is kept.</li>
       </ol>
@@ -173,5 +181,5 @@
 </section>
 
 @if (entryModeOpen()) {
-  <app-coupa-entry-mode [lines]="lines()" (closed)="entryModeOpen.set(false)" />
+  <app-coupa-entry-mode [trips]="coupaTrips()" (closed)="entryModeOpen.set(false)" />
 }

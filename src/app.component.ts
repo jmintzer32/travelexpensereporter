@@ -8,6 +8,7 @@ import { Trip } from './models/trip.model';
 import { TripReport } from './models/trip-report.model';
 import { MatIconModule } from '@angular/material/icon';
 import { CoupaPanelComponent } from './coupa/coupa-panel.component';
+import { defaultReportTitle } from './coupa/coupa.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -34,6 +35,7 @@ export class AppComponent {
   private readonly platformId = inject(PLATFORM_ID);
   private pdfjsLib: any;
   private nextTripId = 1;
+  readonly defaultReportTitle = defaultReportTitle;
 
   uploadedFiles = signal<UploadedFile[]>([]);
   trips = signal<Trip[]>([]);
@@ -124,6 +126,14 @@ export class AppComponent {
       endDate: this.formatDateForInput(today),
     };
     this.trips.update(currentTrips => [...currentTrips, newTrip]);
+  }
+
+  updateTripDetail(id: number, field: 'purpose' | 'reportTitle', value: string): void {
+    this.trips.update(currentTrips =>
+      currentTrips.map(trip =>
+        trip.id === id ? { ...trip, [field]: value.trim() } : trip
+      )
+    );
   }
 
   removeTrip(idToRemove: number): void {
@@ -294,7 +304,7 @@ export class AppComponent {
           trip.endDate
         );
         const total = expenses.reduce((acc, expense) => acc + expense.amount, 0);
-        const reportTrip = { startDate: trip.startDate, endDate: trip.endDate };
+        const reportTrip = { id: trip.id, startDate: trip.startDate, endDate: trip.endDate };
         return { trip: reportTrip, expenses, total };
       });
       

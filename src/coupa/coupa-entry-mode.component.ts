@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, HostListener, computed, input, output, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { CoupaLine } from './coupa.service';
+import { CoupaLine, CoupaTrip } from './coupa.service';
 
 interface EntryField {
   key: keyof CoupaLine;
@@ -9,13 +9,19 @@ interface EntryField {
 
 // Same order as the fields on Coupa's expense line form.
 const FIELDS: EntryField[] = [
-  { key: 'date', label: 'Date' },
-  { key: 'expenseType', label: 'Expense type' },
-  { key: 'merchant', label: 'Merchant' },
-  { key: 'amount', label: 'Amount' },
+  { key: 'expenseType', label: 'Expense Category' },
+  { key: 'date', label: 'Expense Date' },
+  { key: 'amount', label: 'Total' },
   { key: 'description', label: 'Description' },
-  { key: 'zipCode', label: 'Zip code' },
+  { key: 'merchant', label: 'Merchant' },
+  { key: 'purpose', label: 'Business Purpose' },
+  { key: 'zipCode', label: 'Zip Code' },
 ];
+
+interface EntryLine extends CoupaLine {
+  tripIndex: number;
+  tripTitle: string;
+}
 
 const PROGRESS_KEY = 'coupa.entryProgress.v1';
 
@@ -28,7 +34,10 @@ const PROGRESS_KEY = 'coupa.entryProgress.v1';
   imports: [MatIconModule],
 })
 export class CoupaEntryModeComponent {
-  readonly lines = input.required<CoupaLine[]>();
+  readonly trips = input.required<CoupaTrip[]>();
+  readonly lines = computed<EntryLine[]>(() =>
+    this.trips().flatMap((t, tripIndex) => t.lines.map(l => ({ ...l, tripIndex, tripTitle: t.title })))
+  );
   readonly closed = output<void>();
 
   readonly current = signal(0);
@@ -65,6 +74,12 @@ export class CoupaEntryModeComponent {
     this.current.set(index);
     this.nextField.set(0);
     this.copiedKey.set(null);
+  }
+
+  // True for the first line of each trip, where the list shows a trip header.
+  startsTrip(index: number): boolean {
+    const lines = this.lines();
+    return index === 0 || lines[index].tripIndex !== lines[index - 1].tripIndex;
   }
 
   async copy(field: EntryField, index: number): Promise<void> {

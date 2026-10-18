@@ -6,9 +6,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Check storage for expenses sent from the web app
   chrome.storage.local.get(['pendingPayload'], (result) => {
     const payload = result.pendingPayload;
-    if (payload && payload.lines && payload.lines.length > 0) {
+    if (payload && payload.trips && payload.trips.length > 0) {
       pendingPayload = payload;
-      statusBox.innerHTML = `<strong>Ready!</strong><br>${payload.lines.length} expense lines are waiting.`;
+      const lineCount = payload.trips.reduce((n, trip) => n + trip.lines.length, 0);
+      statusBox.innerHTML = `<strong>Ready!</strong><br>${payload.trips.length} trip(s), ${lineCount} expense lines are waiting.`;
     } else {
       statusBox.innerHTML = 'No expenses yet. In Travel Expense Reporter, click <b>Send</b> under “Chrome extension”. You can still open the filler and paste data.';
     }

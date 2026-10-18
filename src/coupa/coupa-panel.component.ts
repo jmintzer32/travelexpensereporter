@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, signal } f
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { MatIconModule } from '@angular/material/icon';
+import { Trip } from '../models/trip.model';
 import { TripReport } from '../models/trip-report.model';
 import { APP_CATEGORIES, CoupaDateFormat, CoupaService } from './coupa.service';
 import { CoupaEntryModeComponent } from './coupa-entry-mode.component';
@@ -21,12 +22,14 @@ export class CoupaPanelComponent {
   private readonly sanitizer = inject(DomSanitizer);
 
   readonly reports = input.required<TripReport[]>();
+  readonly trips = input.required<Trip[]>();
 
   readonly settings = this.coupa.settings;
   readonly categories = APP_CATEGORIES;
   readonly dateFormats: CoupaDateFormat[] = ['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD', 'MM/DD/YY'];
 
-  readonly lines = computed(() => this.coupa.buildLines(this.reports()));
+  readonly coupaTrips = computed(() => this.coupa.buildTrips(this.reports(), this.trips()).filter(t => t.lines.length > 0));
+  readonly lineCount = computed(() => this.coupaTrips().reduce((n, t) => n + t.lines.length, 0));
   readonly entryModeOpen = signal(false);
   readonly showSettings = signal(false);
   readonly showBookmarkletHelp = signal(false);
@@ -46,6 +49,10 @@ export class CoupaPanelComponent {
     this.coupa.updateSettings({ dateFormat: format });
   }
 
+  setDefaultPurpose(purpose: string): void {
+    this.coupa.updateSettings({ defaultPurpose: purpose.trim() });
+  }
+
   setCurrency(currency: string): void {
     this.coupa.updateSettings({ currency: currency.trim().toUpperCase() });
   }
@@ -59,10 +66,10 @@ export class CoupaPanelComponent {
   }
 
   async copyForBookmarklet(): Promise<void> {
-    const json = JSON.stringify(this.coupa.buildPayload(this.reports()));
+    const json = JSON.stringify(this.payload());
     try {
       await navigator.clipboard.writeText(json);
-      this.flash(`Copied ${this.lines().length} lines. In Coupa, click the “Coupa Filler” bookmark and paste.`);
+      this.flash(`Copied ${this.tripSummary()}. In Coupa, click the “Coupa Filler” bookmark and paste.`);
     } catch {
       window.prompt('Copy this, then paste it into the Coupa Filler panel:', json);
     }
@@ -83,13 +90,22 @@ export class CoupaPanelComponent {
     // Sent as a JSON string: objects in a CustomEvent's detail don't reliably
     // cross into the extension's isolated world.
     window.dispatchEvent(new CustomEvent('SYNC_COUPA_EXPENSES', {
-      detail: JSON.stringify(this.coupa.buildPayload(this.reports())),
+      detail: JSON.stringify(this.payload()),
     }));
     if (this.extensionVersion()) {
-      this.flash(`Sent ${this.lines().length} lines. In Coupa, click the extension icon, then “Open filler”.`);
+      this.flash(`Sent ${this.tripSummary()}. In Coupa, click the extension icon, then “Open filler”.`);
     } else {
       this.flash('The Coupa Filler extension isn’t installed in this browser. Use the bookmarklet instead.');
     }
+  }
+
+  private payload() {
+    return this.coupa.buildPayload(this.reports(), this.trips());
+  }
+
+  private tripSummary(): string {
+    const trips = this.coupaTrips().length;
+    return `${trips} ${trips === 1 ? 'trip' : 'trips'} (${this.lineCount()} lines)`;
   }
 
   private detectExtension(): void {

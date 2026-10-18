@@ -116,6 +116,29 @@
                     >
                   </div>
                 </div>
+
+                <div class="grid grid-cols-1 gap-4 mt-4">
+                  <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Business Purpose <span class="normal-case tracking-normal font-medium">(for Coupa)</span></label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Client meetings in Chicago"
+                      class="w-full bg-white rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      [ngModel]="trip.purpose" 
+                      (change)="updateTripDetail(trip.id, 'purpose', $any($event.target).value)" 
+                    >
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Coupa Report Name <span class="normal-case tracking-normal font-medium">(optional)</span></label>
+                    <input 
+                      type="text" 
+                      [placeholder]="defaultReportTitle(trip.startDate)"
+                      class="w-full bg-white rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      [ngModel]="trip.reportTitle" 
+                      (change)="updateTripDetail(trip.id, 'reportTitle', $any($event.target).value)" 
+                    >
+                  </div>
+                </div>
               </div>
             }
           </div>
@@ -146,7 +169,7 @@
               <span class="tracking-tight">Export to PDF</span>
             </button>
 
-            <app-coupa-panel [reports]="reportList" />
+            <app-coupa-panel [reports]="reportList" [trips]="trips()" />
           }
 
           @if (errorMessage()) {

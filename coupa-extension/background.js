@@ -6,7 +6,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const payload = message.data;
 
     chrome.storage.local.set({ pendingPayload: payload }, () => {
-      chrome.action.setBadgeText({ text: String(payload.lines.length) });
+      const lineCount = payload.trips.reduce((n, trip) => n + trip.lines.length, 0);
+      chrome.action.setBadgeText({ text: String(lineCount) });
       chrome.action.setBadgeBackgroundColor({ color: '#4f46e5' });
       sendResponse({ success: true });
     });

@@ -22,6 +22,9 @@
       <!-- Line list -->
       <ol class="overflow-y-auto border-b md:border-b-0 md:border-r border-slate-100 max-h-48 md:max-h-none">
         @for (l of lines(); track $index) {
+          @if (trips().length > 1 && startsTrip($index)) {
+            <li class="px-4 pt-4 pb-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ l.tripTitle }}</li>
+          }
           <li>
             <button
               (click)="select($index)"
@@ -51,7 +54,7 @@
       <div class="overflow-y-auto p-6 flex flex-col gap-4">
         @if (line(); as l) {
           <div class="flex items-center justify-between gap-4">
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Line {{ current() + 1 }} of {{ lines().length }}</p>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ l.tripTitle }} · Line {{ current() + 1 }} of {{ lines().length }}</p>
             @if (isDone(current())) {
               <span class="text-[10px] font-bold uppercase tracking-widest text-teal-600">Entered</span>
             }
@@ -85,7 +88,7 @@
 
           <p class="text-xs text-slate-400 leading-relaxed">
             Put this window beside Coupa. Press <kbd class="px-1.5 py-0.5 rounded bg-slate-100 font-bold">Enter</kbd> to copy the highlighted field, then paste it into Coupa and come back.
-            <kbd class="px-1.5 py-0.5 rounded bg-slate-100 font-bold">1</kbd>–<kbd class="px-1.5 py-0.5 rounded bg-slate-100 font-bold">6</kbd> copy a specific field,
+            <kbd class="px-1.5 py-0.5 rounded bg-slate-100 font-bold">1</kbd>–<kbd class="px-1.5 py-0.5 rounded bg-slate-100 font-bold">7</kbd> copy a specific field,
             <kbd class="px-1.5 py-0.5 rounded bg-slate-100 font-bold">↑</kbd>/<kbd class="px-1.5 py-0.5 rounded bg-slate-100 font-bold">↓</kbd> change line.
           </p>
         }

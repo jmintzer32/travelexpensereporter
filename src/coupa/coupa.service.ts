@@ -1,4 +1,5 @@
 import { Injectable, signal } from '@angular/core';
+import { Trip } from '../models/trip.model';
 import { TripReport } from '../models/trip-report.model';
 
 export type CoupaDateFormat = 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD' | 'MM/DD/YY';
@@ -6,7 +7,9 @@ export type CoupaDateFormat = 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD' | 'MM/D
 export interface CoupaSettings {
   dateFormat: CoupaDateFormat;
   currency: string;
-  // App category (Airfare, Lodging, ...) -> exact Coupa expense type name.
+  // Used for trips that don't have their own business purpose.
+  defaultPurpose: string;
+  // App category (Airfare, Lodging, ...) -> exact Coupa expense category name.
   expenseTypes: Record<string, string>;
 }
 
@@ -18,25 +21,38 @@ export interface CoupaLine {
   amount: string;
   currency: string;
   description: string;
+  purpose: string;
   zipCode: string;
   category: string;
+}
+
+// One trip becomes one Coupa expense report.
+export interface CoupaTrip {
+  title: string;
+  startDate: string;
+  endDate: string;
+  lines: CoupaLine[];
 }
 
 // The JSON copied to the clipboard / sent to the extension.
 // coupa-filler.js checks `source` to recognize it.
 export interface CoupaPayload {
   source: 'travel-expense-reporter';
-  version: 1;
-  lines: CoupaLine[];
+  version: 2;
+  trips: CoupaTrip[];
 }
 
 export const APP_CATEGORIES = ['Airfare', 'Lodging', 'Meals', 'Transportation', 'Entertainment', 'Other'];
+
+// Coupa asks for a zip code only on these.
+const ZIP_CATEGORIES = ['Meals', 'Lodging', 'Entertainment'];
 
 const SETTINGS_KEY = 'coupa.settings.v1';
 
 const DEFAULT_SETTINGS: CoupaSettings = {
   dateFormat: 'MM/DD/YYYY',
   currency: 'USD',
+  defaultPurpose: 'Business travel',
   expenseTypes: {
     Airfare: 'Airfare',
     Lodging: 'Hotel',
@@ -68,24 +84,38 @@ export class CoupaService {
     this.updateSettings(structuredClone(DEFAULT_SETTINGS));
   }
 
-  buildLines(reports: TripReport[]): CoupaLine[] {
+  // `trips` supplies the purpose and report name, which can be edited after
+  // the reports were generated.
+  buildTrips(reports: TripReport[], trips: Trip[]): CoupaTrip[] {
     const s = this.settings();
-    return reports
-      .flatMap(r => r.expenses)
-      .map(e => ({
-        date: formatDate(e.date, s.dateFormat),
-        expenseType: s.expenseTypes[e.category] || e.category,
-        merchant: e.merchant,
-        amount: e.amount.toFixed(2),
-        currency: s.currency,
-        description: e.description,
-        zipCode: e.zipCode && e.zipCode !== 'N/A' ? e.zipCode : '',
-        category: e.category,
-      }));
+    return reports.map(report => {
+      const trip = trips.find(t => t.id === report.trip.id);
+      const purpose = trip?.purpose || s.defaultPurpose;
+      return {
+        title: trip?.reportTitle || defaultReportTitle(report.trip.startDate),
+        startDate: report.trip.startDate,
+        endDate: report.trip.endDate,
+        lines: report.expenses.map(e => ({
+          date: formatDate(e.date, s.dateFormat),
+          expenseType: s.expenseTypes[e.category] || e.category,
+          merchant: e.merchant,
+          amount: e.amount.toFixed(2),
+          currency: s.currency,
+          description: e.description,
+          purpose,
+          zipCode: ZIP_CATEGORIES.includes(e.category) && e.zipCode && e.zipCode !== 'N/A' ? e.zipCode : '',
+          category: e.category,
+        })),
+      };
+    });
   }
 
-  buildPayload(reports: TripReport[]): CoupaPayload {
-    return { source: 'travel-expense-reporter', version: 1, lines: this.buildLines(reports) };
+  buildPayload(reports: TripReport[], trips: Trip[]): CoupaPayload {
+    return {
+      source: 'travel-expense-reporter',
+      version: 2,
+      trips: this.buildTrips(reports, trips).filter(t => t.lines.length > 0),
+    };
   }
 
   private loadSettings(): CoupaSettings {
@@ -103,6 +133,16 @@ export class CoupaService {
     }
     return structuredClone(DEFAULT_SETTINGS);
   }
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Matches the names already used on this account's Coupa reports.
+export function defaultReportTitle(isoStartDate: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoStartDate || '');
+  if (!match) return 'Trip';
+  const [, y, m, d] = match;
+  return `Trip starting ${MONTHS[Number(m) - 1]} ${d}, ${y}`;
 }
 
 // Expense dates come from Gemini as YYYY-MM-DD.
