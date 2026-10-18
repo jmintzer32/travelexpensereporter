@@ -109,6 +109,13 @@ export class CoupaService {
   readonly settings = signal<CoupaSettings>(this.loadSettings());
   readonly projects = signal<CoupaProject[]>(this.loadProjects());
 
+  constructor() {
+    // Keep in step with projects added in another tab of this site.
+    window.addEventListener('storage', event => {
+      if (event.key === PROJECTS_KEY) this.projects.set(this.loadProjects());
+    });
+  }
+
   addProject(company: string, number: string, name: string, wbs: string): CoupaProject {
     const project: CoupaProject = {
       id: `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
@@ -122,19 +129,36 @@ export class CoupaService {
   }
 
   // Adds a project for each cost code like "4010-Project WBS-12345B1-01A.021200"
-  // (optionally followed by a name) not already in the list.
-  // Returns how many were added.
-  addProjectsFromCostCodes(text: string): number {
-    let added = 0;
+  // (optionally followed by a name) not already in the list, and names
+  // listed projects that have no name yet. Returns the projects added.
+  addProjectsFromCostCodes(text: string): CoupaProject[] {
+    const added: CoupaProject[] = [];
     for (const line of text.split(/\r?\n/)) {
       const match = /(\d{3,5})\s*-\s*Project WBS\s*-\s*([A-Za-z0-9]+)-([A-Za-z0-9.]+)\s*[-–,:]?\s*(.*)$/.exec(line.trim());
       if (!match) continue;
       const [, company, number, wbs, name] = match;
-      if (this.projects().some(p => p.number.toLowerCase() === number.toLowerCase())) continue;
-      this.addProject(company, number, name.trim(), wbs);
-      added++;
+      const existing = this.projects().find(p => p.number.toLowerCase() === number.toLowerCase());
+      if (existing) {
+        if (!existing.name && name.trim()) this.updateProject(existing.id, { name: name.trim() });
+        continue;
+      }
+      added.push(this.addProject(company, number, name.trim(), wbs));
     }
     return added;
+  }
+
+  // The Coupa Filler opens this site with "#coupa-projects=<cost codes>" to add
+  // projects picked in Coupa. Returns the projects added, or null when the
+  // address carried none.
+  importProjectsFromAddress(): CoupaProject[] | null {
+    const match = /^#coupa-projects=(.*)$/.exec(location.hash);
+    if (!match) return null;
+    history.replaceState(null, '', location.pathname + location.search);
+    try {
+      return this.addProjectsFromCostCodes(decodeURIComponent(match[1]));
+    } catch {
+      return [];
+    }
   }
 
   updateProject(id: string, patch: Partial<Omit<CoupaProject, 'id'>>): void {

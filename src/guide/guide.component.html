@@ -43,6 +43,7 @@
                   <ul class="list-disc pl-5 mt-2 space-y-1">
                     <li>In <b>2. Define Trips</b>, open a trip’s <b>Project</b> list and choose <b>+ Add a project…</b>. Enter the company code (e.g. 4010), project number, a name you’ll recognize, and the WBS element (travel is usually <code>01A.021200</code>, already filled in).</li>
                     <li>Or, after generating a report, open the <b>sliders icon</b> in <b>4. Enter into Coupa</b> → <b>Add projects from cost codes</b>, and paste cost codes from a past Coupa report, one per line, like <code>4010-Project WBS-12345B1-01A.021200 Main St Tower</code>.</li>
+                    <li>Or pick them in Coupa: once the Coupa Filler bookmark is set up (step 3), open a draft report, click the bookmark, go to <b>Setup</b> → <b>Add a project</b>, pick the project’s cost code as usual, then click <b>Add to expense site</b>. Pick several before sending if you like.</li>
                   </ul>
                 </div>
               </li>
@@ -125,6 +126,12 @@
               <li class="flex gap-4"><span class="step">4</span><div class="flex-1"><h3 class="step-title">Pick the cost code like you always do</h3><p>In the Account search: <b>company code</b> (change it if needed) → <b>cost type</b> “Project WBS” → <b>project</b> → <b>WBS element</b> → Coupa’s button to confirm.</p></div></li>
               <li class="flex gap-4"><span class="step">5</span><div class="flex-1"><h3 class="step-title">Done</h3><p>The panel says <b>“Learned it”</b> and shows the account. The line it opened now has that cost code: click <b>Fill next</b> to use it, or <b>Cancel</b> it in Coupa.</p></div></li>
             </ol>
+            <h3 class="section-label mt-10">Adding a new project from Coupa</h3>
+            <ol class="space-y-6">
+              <li class="flex gap-4"><span class="step">1</span><div class="flex-1"><h3 class="step-title">In the panel’s Setup tab, click “Add a project”</h3><p>With a draft report open. It opens a line and the Account search, like Teach.</p></div></li>
+              <li class="flex gap-4"><span class="step">2</span><div class="flex-1"><h3 class="step-title">Pick the project’s cost code and confirm</h3><p>Repeat for more projects if you want.</p></div></li>
+              <li class="flex gap-4"><span class="step">3</span><div class="flex-1"><h3 class="step-title">Click “Add to expense site”</h3><p>This site opens in a new tab with the projects added (named after Coupa’s project names). If your browser blocks that, click <b>Copy</b> instead and paste into <b>Add projects from cost codes</b> here. Then cancel the empty line in Coupa.</p></div></li>
+            </ol>
             <p class="mt-8 p-4 bg-slate-50 rounded-2xl text-slate-500">If the panel says <b>“Nothing changed”</b>, click Teach again and make sure you finish with Coupa’s own confirm button. If lines later stop with an <b>“Account:”</b> message, Coupa’s window probably changed: click <b>Re-teach</b>.</p>
           }
 
@@ -153,6 +160,10 @@
               <div>
                 <dt class="step-title">My projects or settings disappeared</dt>
                 <dd>They’re saved in this browser only. A different computer or browser, a private window, or clearing browsing data starts empty. Paste your cost codes again (sliders icon → <b>Add projects from cost codes</b>). To back up what the filler learned, use <b>Copy setup</b> in the panel’s Setup tab and keep the text somewhere; <b>Import setup</b> puts it back.</dd>
+              </div>
+              <div>
+                <dt class="step-title">A project I picked in Coupa isn’t on this site</dt>
+                <dd>Teach only teaches the Coupa Filler, since Coupa and this site can’t see each other’s saved data. To bring a project over, use <b>Add a project</b> in the panel’s Setup tab, then <b>Add to expense site</b>. <button (click)="show('teach')" class="font-bold text-indigo-600 hover:underline">Steps</button>.</dd>
               </div>
               <div>
                 <dt class="step-title">I don’t see “4. Enter into Coupa”</dt>

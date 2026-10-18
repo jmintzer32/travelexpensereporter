@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2.3.0';
+  var VERSION = '2.4.0';
   var CONFIG_KEY = 'coupaFiller.config.v2';
   var STATE_KEY = 'coupaFiller.state.v2';
 
@@ -657,11 +657,48 @@
     return recorded;
   }
 
-  async function teachProject() {
+  // Projects picked in Coupa, waiting to be added to the expense site, as
+  // cost code lines ("4010-Project WBS-12345B1-01A.021200 Name") that its
+  // "Add projects from cost codes" box also accepts.
+  var SEND_KEY = 'coupaFiller.toSend.v1';
+  var toSend = storageGet(SEND_KEY) || [];
+  function saveToSend() { storageSet(SEND_KEY, toSend); }
+
+  // Set by the bookmarklet (built by the expense site) or the extension.
+  function appUrl() {
+    return window.__coupaFillerAppUrl || '';
+  }
+
+  // The cost code line for an account Coupa shows, named after the project
+  // choice you clicked ("12345B1 - Main St Tower" -> "Main St Tower").
+  function projectLine(account, steps) {
+    var match = /(\d{3,5})\s*-\s*Project WBS\s*-\s*([A-Za-z0-9]+)-([A-Za-z0-9.]+)/.exec(account);
+    if (!match) return '';
+    var name = '';
+    steps.forEach(function (step) {
+      var value = step.type === 'set' ? step.value : step.text;
+      if (step.slot === 'project' && norm(value).indexOf(norm(match[2])) === 0) {
+        name = value.slice(match[2].length).replace(/^[\s\-–:]+/, '').trim();
+      }
+    });
+    return match[1] + '-Project WBS-' + match[2] + '-' + match[3] + (name ? ' ' + name : '');
+  }
+
+  function queueProject(line) {
+    var number = line.split('-')[2];
+    toSend = toSend.filter(function (l) { return l.split('-')[2] !== number; });
+    toSend.push(line);
+    saveToSend();
+  }
+
+  // mode 'teach': learn how you pick a cost code (for every project).
+  // mode 'add': pick a project's cost code to add it to the expense site
+  //   (also teaches, if nothing was taught yet).
+  async function captureProject(mode) {
     var entry = lines()[nextPendingIndex(0)] || lines()[0];
     // Without loaded expenses, any project will do: the recorded choices are
     // then sorted out by the Account search's field names alone.
-    var code = codeFor(entry) || { key: '', label: '', company: '', number: '', wbs: '' };
+    var code = (mode === 'teach' && codeFor(entry)) || { key: '', label: '', company: '', number: '', wbs: '' };
     if (running) return;
     running = true;
     say('Opening a line and Coupa’s Account search…');
@@ -675,26 +712,40 @@
       var before = currentAccount();
       await openAccountModal();
       ui.teaching = true;
-      say(code.number
-        ? 'Pick the cost code for ' + code.label + ' in Coupa’s Account search the way you usually do: company code ' +
-          (code.company || '') + ', cost type Project WBS, project ' + code.number + ', WBS element ' + code.wbs +
-          '. Then confirm it there. I’m watching, and will do the same for every project after this.'
-        : 'Pick any project’s cost code in Coupa’s Account search the way you usually do: company code, cost type Project WBS, ' +
-          'the project, the WBS element. Then confirm it there. I’m watching, and will do the same for every project after this.');
+      say(mode === 'add'
+        ? 'Pick the project’s cost code in Coupa’s Account search as usual (company code, Project WBS, the project, the WBS element), then confirm it there.'
+        : code.number
+          ? 'Pick the cost code for ' + code.label + ' in Coupa’s Account search the way you usually do: company code ' +
+            (code.company || '') + ', cost type Project WBS, project ' + code.number + ', WBS element ' + code.wbs +
+            '. Then confirm it there. I’m watching, and will do the same for every project after this.'
+          : 'Pick any project’s cost code in Coupa’s Account search the way you usually do: company code, cost type Project WBS, ' +
+            'the project, the WBS element. Then confirm it there. I’m watching, and will do the same for every project after this.');
       var steps = await recordAccountSteps();
-      if (!steps) { say('Teaching cancelled.'); return; }
+      if (!steps) { say('Cancelled.'); return; }
       var after = currentAccount();
       if (!steps.length || !after || after === before) {
-        say('Nothing changed on the line’s Account, so nothing was saved. Click Teach to try again.', true);
+        say('Nothing changed on the line’s Account, so nothing was saved. Try again, and finish with Coupa’s own confirm button.', true);
         return;
       }
       steps.forEach(function (step) { step.slot = slotFor(step, code); });
-      if (code.key) recipes[code.key] = { label: code.label, account: after, wbs: code.wbs, steps: steps };
-      recipes.__template = { steps: steps };
-      saveRecipes();
-      say('Learned it: ' + after + '. Lines for any project now get their cost code automatically. Click Fill next.');
+      if (mode === 'teach' || !recipes.__template) {
+        if (code.key) recipes[code.key] = { label: code.label, account: after, wbs: code.wbs, steps: steps };
+        recipes.__template = { steps: steps };
+        saveRecipes();
+      }
+      // A project from the expense site's own data is already there.
+      var line = projectLine(after, steps);
+      if (line && !code.number) queueProject(line);
+      if (mode === 'add') {
+        say(line
+          ? 'Got it: ' + line + '. Click “Add to expense site” below (or pick another project first). Cancel the empty line in Coupa when you’re done.'
+          : 'Coupa shows “' + after + '”, which isn’t a project cost code, so it wasn’t added.', !line);
+      } else {
+        say('Learned it: ' + after + '. Lines for any project now get their cost code automatically. Click Fill next.' +
+          (line && !code.number ? ' To add this project to the expense site too, use “Add to expense site” in Setup.' : ''));
+      }
     } catch (e) {
-      say('Teach: ' + e.message, true);
+      say((mode === 'add' ? 'Add project: ' : 'Teach: ') + e.message, true);
     } finally {
       ui.teaching = false;
       recording = null;
@@ -1045,7 +1096,7 @@
   var root = host.attachShadow({ mode: 'open' });
   document.documentElement.appendChild(host);
 
-  var ui = { tab: state.trips.length ? 'run' : 'load', minimized: false, message: '', messageErr: false, picking: '', teaching: false };
+  var ui = { tab: state.trips.length ? 'run' : 'load', minimized: false, message: '', messageErr: false, picking: '', teaching: false, advanced: false };
 
   var STYLE = [
     ':host{all:initial}',
@@ -1191,13 +1242,36 @@
       html += '<div class="row"><span class="grow ok">✓ Learned. Cost codes are set automatically for every project.</span>' +
         '<button class="btn" data-act="teach"' + (running ? ' disabled' : '') + '>Re-teach</button></div>';
     } else {
-      html += '<div class="muted">Show me once how you pick a cost code. Open a draft expense report in Coupa, click <b>Teach</b>, then pick a project’s cost code in the Account search window as you usually do and confirm it.</div>' +
+      html += '<div class="muted">Show me once how you pick a cost code: open a draft expense report, click <b>Teach</b>, then pick a project in Coupa’s Account search as usual and confirm it.</div>' +
         '<div class="row"><span class="grow bad">Not learned yet</span><button class="btn primary" data-act="teach"' + (running ? ' disabled' : '') + '>Teach</button></div>';
+    }
+    if (!ui.teaching) {
+      html += '<div class="row"><span class="grow muted">New project? Pick it here and send it to the expense site.</span>' +
+        '<button class="btn" data-act="addProject"' + (running ? ' disabled' : '') + '>Add a project</button></div>';
+    }
+    if (toSend.length) {
+      var url = appUrl();
+      html += '<div class="msg">' + toSend.length + (toSend.length === 1 ? ' project' : ' projects') + ' to add to the expense site:<br><b>' +
+        toSend.map(esc).join('<br>') + '</b></div><div class="row">' +
+        (url ? '<a class="btn primary grow" style="text-align:center;text-decoration:none" data-act="sendProjects" target="_blank" rel="noopener" href="' +
+          esc(url + '#coupa-projects=' + encodeURIComponent(toSend.join('\n'))) + '">Add to expense site ↗</a>' : '') +
+        '<button class="btn' + (url ? '' : ' primary grow') + '" data-act="copyProjects">Copy</button></div>';
     }
     html += '</div>';
     html += '<h4>Options</h4>' +
       '<label class="chk"><input type="checkbox" data-autosave' + (config.autoSave ? ' checked' : '') + '>Click Coupa’s Save after filling each line (enables Fill all)</label>';
-    html += '<h4>Coupa buttons and fields</h4><div class="muted">Already set up for Coupa’s standard expense screen. Only change these if something isn’t found: open a line form in Coupa, click <b>Pick</b>, then click the matching button or field. Esc cancels.</div>';
+    html += '<h4>Back up</h4>' +
+      '<div class="muted">Saved in this browser only. Copy it to keep a backup or move it to another computer.</div>' +
+      '<div class="row"><button class="btn" data-act="export">Copy setup</button><button class="btn" data-act="import">Import setup…</button></div>';
+    html += '<button class="btn" data-act="advanced" style="border:0;padding-left:0;color:#64748b;text-align:left">' +
+      (ui.advanced ? '▾' : '▸') + ' Advanced: only if Coupa’s screen changes</button>';
+    if (ui.advanced) html += renderAdvanced();
+    return html;
+  }
+
+  // Where the filler clicks and types. Preset for Coupa's expense screen.
+  function renderAdvanced() {
+    var html = '<div class="muted">Change these only if a button or field isn’t found: open a line in Coupa, click <b>Pick</b>, then click the matching button or field. Esc cancels.</div>';
     html += '<h4>Buttons</h4>';
     BUTTONS.forEach(function (b) {
       html += '<div class="field"><div class="top"><span style="flex:1">' + b[1] + '</span>' +
@@ -1219,8 +1293,7 @@
     html += '<h4>Timing</h4>' +
       '<div class="row"><span class="grow muted">Wait after “Add Expense Line” (ms)</span><input type="number" style="width:90px" data-delay="afterAddLine" value="' + config.delays.afterAddLine + '"></div>' +
       '<div class="row"><span class="grow muted">Wait after Save (ms)</span><input type="number" style="width:90px" data-delay="afterSave" value="' + config.delays.afterSave + '"></div>' +
-      '<h4>Share setup</h4>' +
-      '<div class="row"><button class="btn" data-act="export">Copy setup</button><button class="btn" data-act="import">Import setup…</button><button class="btn" data-act="reset">Reset</button></div>';
+      '<div class="row"><button class="btn" data-act="reset">Reset to Coupa defaults</button></div>';
     return html;
   }
 
@@ -1315,7 +1388,32 @@
         });
         break;
       case 'newReport': newReportForTrip(); break;
-      case 'teach': teachProject(); break;
+      case 'teach': captureProject('teach'); break;
+      case 'addProject': captureProject('add'); break;
+      case 'sendProjects':
+        // The link opens the expense site; clear the list once it has gone.
+        setTimeout(function () {
+          toSend = [];
+          saveToSend();
+          say('Sent. The expense site opened in a new tab with the projects added.');
+        }, 0);
+        break;
+      case 'copyProjects': {
+        var codes = toSend.join('\n');
+        var copied = function () {
+          toSend = [];
+          saveToSend();
+          say('Copied. On the expense site: sliders icon in “4. Enter into Coupa” → “Add projects from cost codes” → paste.');
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(codes).then(copied, function () { window.prompt('Copy these cost codes:', codes); copied(); });
+        } else {
+          window.prompt('Copy these cost codes:', codes);
+          copied();
+        }
+        break;
+      }
+      case 'advanced': ui.advanced = !ui.advanced; render(); break;
       case 'cancelTeach': if (recording) recording.cancelled = true; break;
       case 'useOpen':
         trip().report = reportNumber() || 'open report';
@@ -1361,7 +1459,7 @@
         break;
       }
       case 'reset':
-        if (window.confirm('Reset all Coupa settings in this panel to the defaults?')) {
+        if (window.confirm('Reset where the filler clicks and types to Coupa’s defaults? What it learned from Teach is kept.')) {
           config = clone(DEFAULT_CONFIG);
           saveConfig();
           say('Setup reset.');

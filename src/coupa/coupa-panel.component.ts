@@ -64,7 +64,7 @@ export class CoupaPanelComponent {
   }
 
   importCostCodes(text: string): void {
-    const added = this.coupa.addProjectsFromCostCodes(text);
+    const added = this.coupa.addProjectsFromCostCodes(text).length;
     this.flash(added ? `Added ${added} ${added === 1 ? 'project' : 'projects'}. Give them names so they’re easy to pick.` : 'No new projects found. Cost codes look like 4010-Project WBS-12345B1-01A.021200.');
   }
 
