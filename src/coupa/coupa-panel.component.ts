@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { MatIconModule } from '@angular/material/icon';
 import { Trip } from '../models/trip.model';
 import { TripReport } from '../models/trip-report.model';
 import { APP_CATEGORIES, CoupaDateFormat, CoupaService } from './coupa.service';
 import { CoupaEntryModeComponent } from './coupa-entry-mode.component';
+import { BookmarkletService } from './bookmarklet.service';
+import { GuideSection, GuideService } from '../guide/guide.service';
 
 // Set on <html> by the Chrome extension's content script (coupa-extension/content-app.js).
 const EXTENSION_ATTR = 'data-coupa-filler-extension';
@@ -19,7 +20,8 @@ const EXTENSION_ATTR = 'data-coupa-filler-extension';
 })
 export class CoupaPanelComponent {
   private readonly coupa = inject(CoupaService);
-  private readonly sanitizer = inject(DomSanitizer);
+  private readonly bookmarklet = inject(BookmarkletService);
+  private readonly guide = inject(GuideService);
 
   readonly reports = input.required<TripReport[]>();
   readonly trips = input.required<Trip[]>();
@@ -36,11 +38,10 @@ export class CoupaPanelComponent {
   readonly showBookmarkletHelp = signal(false);
   readonly notice = signal<string | null>(null);
   readonly extensionVersion = signal<string | null>(null);
-  readonly bookmarkletHref = signal<SafeUrl | null>(null);
-  private bookmarkletCode = '';
+  readonly bookmarkletHref = this.bookmarklet.href;
+  readonly bookmarkletVersion = this.bookmarklet.version;
 
   constructor() {
-    this.loadBookmarklet();
     // The extension's content script runs after the page loads; check again shortly.
     this.detectExtension();
     setTimeout(() => this.detectExtension(), 1500);
@@ -90,13 +91,12 @@ export class CoupaPanelComponent {
   }
 
   async copyBookmarkletCode(): Promise<void> {
-    if (!this.bookmarkletCode) return;
-    try {
-      await navigator.clipboard.writeText(this.bookmarkletCode);
-      this.flash('Bookmarklet copied. Create a new bookmark and paste it as the URL.');
-    } catch {
-      window.prompt('Copy this and paste it as a bookmark URL:', this.bookmarkletCode);
-    }
+    await this.bookmarklet.copyCode();
+    this.flash('Bookmarklet copied. Create a new bookmark and paste it as the URL.');
+  }
+
+  openGuide(section: GuideSection): void {
+    this.guide.open(section);
   }
 
   sendToExtension(): void {
@@ -124,22 +124,6 @@ export class CoupaPanelComponent {
 
   private detectExtension(): void {
     this.extensionVersion.set(document.documentElement.getAttribute(EXTENSION_ATTR));
-  }
-
-  private async loadBookmarklet(): Promise<void> {
-    try {
-      const res = await fetch('public/coupa-filler.js', { cache: 'no-cache' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const source = await res.text();
-      // Self-contained, so it still works if Coupa's security policy blocks
-      // loading scripts from other sites.
-      this.bookmarkletCode = 'javascript:' + encodeURIComponent(
-        `(function(){${source}\n;window.__coupaFiller&&window.__coupaFiller.open();})();void 0`
-      );
-      this.bookmarkletHref.set(this.sanitizer.bypassSecurityTrustUrl(this.bookmarkletCode));
-    } catch (e) {
-      console.error('Could not load coupa-filler.js for the bookmarklet', e);
-    }
   }
 
   private flash(message: string): void {

@@ -8,6 +8,8 @@ import { Trip } from './models/trip.model';
 import { TripReport } from './models/trip-report.model';
 import { MatIconModule } from '@angular/material/icon';
 import { CoupaPanelComponent } from './coupa/coupa-panel.component';
+import { GuideComponent } from './guide/guide.component';
+import { GuideService } from './guide/guide.service';
 import { CoupaService, DEFAULT_WBS, defaultReportTitle, projectLabel } from './coupa/coupa.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -27,7 +29,8 @@ interface UploadedFile {
     CommonModule, 
     FormsModule, 
     MatIconModule,
-    CoupaPanelComponent
+    CoupaPanelComponent,
+    GuideComponent
   ],
 })
 export class AppComponent {
@@ -39,6 +42,7 @@ export class AppComponent {
   readonly projectLabel = projectLabel;
   readonly defaultWbs = DEFAULT_WBS;
   private readonly coupa = inject(CoupaService);
+  readonly guide = inject(GuideService);
   readonly projects = this.coupa.projects;
   // Trip whose "add project" form is open.
   readonly addingProjectFor = signal<number | null>(null);
