@@ -77,17 +77,28 @@
         }
         <div class="space-y-2">
           @for (p of projects(); track p.id) {
-            <div class="flex items-center gap-2">
-              <input class="flex-1 min-w-0 bg-white rounded-xl border border-slate-200 px-3 py-2 text-sm max-w-[6.5rem]" placeholder="Number" [ngModel]="p.number" (change)="updateProject(p.id, 'number', $any($event.target).value)">
-              <input class="flex-1 min-w-0 bg-white rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Name" [ngModel]="p.name" (change)="updateProject(p.id, 'name', $any($event.target).value)">
-              <input class="flex-1 min-w-0 bg-white rounded-xl border border-slate-200 px-3 py-2 text-sm max-w-[5.5rem]" placeholder="WBS" title="Usual WBS element" [ngModel]="p.wbs" (change)="updateProject(p.id, 'wbs', $any($event.target).value)">
-              <button (click)="removeProject(p.id)" class="w-8 h-8 shrink-0 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 flex items-center justify-center" aria-label="Remove project">
-                <mat-icon class="!text-base !w-auto !h-auto">delete</mat-icon>
-              </button>
+            <div class="p-2 bg-white/60 rounded-xl border border-slate-100 space-y-2">
+              <div class="flex items-center gap-2">
+                <input class="flex-1 min-w-0 bg-white rounded-xl border border-slate-200 px-3 py-2 text-sm max-w-[5rem]" placeholder="Co." title="Company code" [ngModel]="p.company" (change)="updateProject(p.id, 'company', $any($event.target).value)">
+                <input class="flex-1 min-w-0 bg-white rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Project number" title="Project number" [ngModel]="p.number" (change)="updateProject(p.id, 'number', $any($event.target).value)">
+                <button (click)="removeProject(p.id)" class="w-8 h-8 shrink-0 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 flex items-center justify-center" aria-label="Remove project">
+                  <mat-icon class="!text-base !w-auto !h-auto">delete</mat-icon>
+                </button>
+              </div>
+              <div class="flex items-center gap-2">
+                <input class="flex-1 min-w-0 bg-white rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Name" title="Name" [ngModel]="p.name" (change)="updateProject(p.id, 'name', $any($event.target).value)">
+                <input class="flex-1 min-w-0 bg-white rounded-xl border border-slate-200 px-3 py-2 text-sm max-w-[8rem]" placeholder="WBS" title="Usual WBS element" [ngModel]="p.wbs" (change)="updateProject(p.id, 'wbs', $any($event.target).value)">
+              </div>
             </div>
           }
         </div>
-        <p class="text-xs text-slate-400 mt-2 leading-relaxed">The Coupa Filler learns each project’s cost code the first time you use it (the <b>Teach</b> button), and remembers it after that.</p>
+        <details class="mt-3">
+          <summary class="text-xs font-bold text-indigo-600 cursor-pointer">Add projects from cost codes</summary>
+          <p class="text-xs text-slate-500 mt-2 leading-relaxed">Paste cost codes from past Coupa lines, one per line, optionally followed by a name, e.g. <code class="text-[11px]">4010-Project WBS-12345B1-01A.021200 Main St Tower</code>.</p>
+          <textarea #codes rows="4" class="mt-2 w-full bg-white rounded-xl border border-slate-200 px-3 py-2 text-xs font-mono"></textarea>
+          <button (click)="importCostCodes(codes.value); codes.value = ''" class="mt-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl border border-slate-200">Add projects</button>
+        </details>
+        <p class="text-xs text-slate-400 mt-3 leading-relaxed">The Coupa Filler learns how to pick a cost code the first time you click its <b>Teach</b> button, then does it for every project.</p>
       </div>
       <button (click)="resetSettings()" class="text-xs font-bold text-slate-400 hover:text-slate-700 uppercase tracking-wider">Reset to defaults</button>
     </div>

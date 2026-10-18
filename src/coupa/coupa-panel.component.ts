@@ -62,7 +62,12 @@ export class CoupaPanelComponent {
     this.coupa.setExpenseType(category, coupaType.trim());
   }
 
-  updateProject(id: string, field: 'number' | 'name' | 'wbs', value: string): void {
+  importCostCodes(text: string): void {
+    const added = this.coupa.addProjectsFromCostCodes(text);
+    this.flash(added ? `Added ${added} ${added === 1 ? 'project' : 'projects'}. Give them names so they’re easy to pick.` : 'No new projects found. Cost codes look like 4010-Project WBS-12345B1-01A.021200.');
+  }
+
+  updateProject(id: string, field: 'company' | 'number' | 'name' | 'wbs', value: string): void {
     this.coupa.updateProject(id, { [field]: value.trim() });
   }
 

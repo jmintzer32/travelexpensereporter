@@ -3,7 +3,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { CoupaLine, CoupaTrip } from './coupa.service';
 
 interface EntryField {
-  key: keyof CoupaLine;
+  key: Exclude<keyof CoupaLine, 'costCode'>;
   label: string;
 }
 

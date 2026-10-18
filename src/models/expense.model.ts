@@ -6,4 +6,6 @@ export interface Expense {
   category: string;
   amount: number;
   zipCode: string;
+  // Project to charge this line to, when not the trip's (CoupaProject.id).
+  projectId?: string;
 }

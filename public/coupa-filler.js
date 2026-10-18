@@ -13,7 +13,7 @@
 // lives in a config saved in this browser's localStorage for the Coupa site,
 // editable from the panel's "Setup" tab (including a point-and-click picker).
 // The defaults match Coupa's expense screen (its stable "s-..." classes).
-// Project cost codes are learned once per project (see "Project cost codes").
+// How you pick a project's cost code is learned once (see "Project cost codes").
 // Everything about *what* to type (date format, expense category names,
 // business purpose) is decided by the app before the data is copied.
 //
@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2.1.0';
+  var VERSION = '2.2.0';
   var CONFIG_KEY = 'coupaFiller.config.v2';
   var STATE_KEY = 'coupaFiller.state.v2';
 
@@ -496,12 +496,15 @@
   // ---------------------------------------------------------------------------
   //
   // Coupa sets a line's Account in its "Account search" window (company code,
-  // cost type, project, WBS element). The first time a project is used, Teach
-  // opens that window and records what you choose there. After that the same
-  // choices are replayed on every line of a trip charged to that project.
+  // cost type, project, WBS element). Teach opens that window once and records
+  // what you choose there, noting which choice was the company code, project
+  // and WBS element. Every line after that, for any project, replays the same
+  // choices with that project's values.
 
   var PROJECTS_KEY = 'coupaFiller.projects.v1';
-  // { [project key]: { label, account, wbs, steps: [{ type: 'set', label, value } | { type: 'click', text }] } }
+  // { [project key]: { label, account, wbs, steps }, __template: { steps } }
+  // step: { type: 'set', label, value, slot } | { type: 'click', text, slot }
+  // slot: 'company' | 'project' | 'wbs' | '' (a fixed choice, like cost type)
   var recipes = storageGet(PROJECTS_KEY) || {};
   function saveRecipes() { storageSet(PROJECTS_KEY, recipes); }
 
@@ -612,9 +615,51 @@
     });
   }
 
+  // The cost code a line is charged to (lines from older app versions only
+  // have the trip's).
+  function codeFor(entry) {
+    return (entry && entry.line.costCode) || trip().project || null;
+  }
+
+  function tripCodes() {
+    var seen = {};
+    var codes = [];
+    lines().map(codeFor).concat([trip().project]).forEach(function (code) {
+      if (code && !seen[code.key]) { seen[code.key] = true; codes.push(code); }
+    });
+    return codes;
+  }
+
+  function canSetAccount(code) {
+    return !!(recipes[code.key] || recipes.__template);
+  }
+
+  // Which part of the cost code a recorded step chose, so the steps can be
+  // replayed for any project.
+  function slotFor(step, code) {
+    var label = step.label || '';
+    var value = norm(step.type === 'set' ? step.value : step.text);
+    if (/wbs/i.test(label)) return 'wbs';
+    if (/company/i.test(label)) return 'company';
+    if (/project/i.test(label)) return 'project';
+    if (code.number && value.indexOf(norm(code.number)) !== -1) return 'project';
+    if (code.wbs && value.indexOf(norm(code.wbs)) !== -1) return 'wbs';
+    if (code.company && value.indexOf(norm(code.company)) === 0) return 'company';
+    return '';
+  }
+
+  function slotValue(step, code) {
+    var recorded = step.type === 'set' ? step.value : step.text;
+    if (step.slot === 'project') return code.number || code.label;
+    if (step.slot === 'wbs') return code.wbs || recorded;
+    if (step.slot === 'company') return code.company || recorded;
+    return recorded;
+  }
+
   async function teachProject() {
-    var t = trip();
-    if (running || !t.project) return;
+    var entry = lines()[nextPendingIndex(0)] || lines()[0];
+    var code = codeFor(entry);
+    if (running || !code) return;
     running = true;
     say('Opening a line and Coupa’s Account search…');
     try {
@@ -622,7 +667,9 @@
       var before = currentAccount();
       await openAccountModal();
       ui.teaching = true;
-      say('Now pick the cost code for ' + t.project.label + ' in Coupa’s Account search the way you usually do (company code, cost type Project, the project, WBS element ' + t.project.wbs + '), and confirm it there. I’m watching.');
+      say('Pick the cost code for ' + code.label + ' in Coupa’s Account search the way you usually do: company code ' +
+        (code.company || '') + ', cost type Project WBS, project ' + code.number + ', WBS element ' + code.wbs +
+        '. Then confirm it there. I’m watching, and will do the same for every project after this.');
       var steps = await recordAccountSteps();
       if (!steps) { say('Teaching cancelled.'); return; }
       var after = currentAccount();
@@ -630,9 +677,11 @@
         say('Nothing changed on the line’s Account, so nothing was saved. Click Teach to try again.', true);
         return;
       }
-      recipes[t.project.key] = { label: t.project.label, account: after, wbs: t.project.wbs, steps: steps };
+      steps.forEach(function (step) { step.slot = slotFor(step, code); });
+      recipes[code.key] = { label: code.label, account: after, wbs: code.wbs, steps: steps };
+      recipes.__template = { steps: steps };
       saveRecipes();
-      say('Learned ' + t.project.label + ': ' + after + '. Every line on this trip will use it. Click Fill next.');
+      say('Learned it: ' + after + '. Lines for any project now get their cost code automatically. Click Fill next.');
     } catch (e) {
       say('Teach: ' + e.message, true);
     } finally {
@@ -643,16 +692,20 @@
     }
   }
 
-  // Sets the open line's Account to the trip's project, replaying the
-  // steps learned for it.
-  async function applyProject(t) {
-    var recipe = recipes[t.project.key];
-    if (!recipe) throw new Error('Account: teach the cost code for ' + t.project.label + ' first.');
-    var wbs = t.project.wbs || recipe.wbs;
-    var newWbs = norm(wbs) !== norm(recipe.wbs);
-    var expected = newWbs ? '' : recipe.account;
-    if (expected && currentAccount() === expected) return;
+  // Sets the open line's Account to a project's cost code by replaying the
+  // taught steps with that project's company code, number and WBS element.
+  async function applyCostCode(code) {
+    var own = recipes[code.key];
+    var recipe = own || recipes.__template;
+    if (!recipe) throw new Error('Account: click Teach first, to show me how you pick a cost code.');
+    var expected = own && norm(own.wbs) === norm(code.wbs) ? own.account : '';
+    function isSet(account) {
+      if (expected) return account === expected;
+      return !!code.number && norm(account).indexOf(norm(code.number)) !== -1 &&
+        norm(account).indexOf(norm(code.wbs)) !== -1;
+    }
     var before = currentAccount();
+    if (isSet(before)) return;
 
     try {
       await openAccountModal();
@@ -661,8 +714,7 @@
     }
     for (var i = 0; i < recipe.steps.length; i++) {
       var step = recipe.steps[i];
-      var value = step.type === 'set' ? step.value : step.text;
-      if (newWbs && (/wbs/i.test(step.label || '') || norm(value) === norm(recipe.wbs))) value = wbs;
+      var value = slotValue(step, code);
       if (step.type === 'set') {
         var el = await waitFor('label:' + step.label, config.delays.fieldTimeout, accountModal).catch(function () { return fieldNamed(step.label); });
         if (!el) throw new Error('Account: no “' + step.label + '” field in the search window.');
@@ -682,8 +734,12 @@
     if (!closed) throw new Error('Account: the search window is still open. Finish choosing the cost code there, then click Fill next.');
     await sleep(400);
     var now = currentAccount();
-    if (expected ? now !== expected : now === before) {
-      throw new Error('Account: Coupa shows “' + now + '”, not the cost code for ' + t.project.label + '. Fix it before saving.');
+    // The WBS element may show as a name ("Travel") rather than in the code.
+    var ok = expected ? now === expected
+      : code.number ? norm(now).indexOf(norm(code.number)) !== -1
+      : now !== before;
+    if (!ok) {
+      throw new Error('Account: Coupa shows “' + now + '”, not the cost code for ' + code.label + '. Fix it before saving.');
     }
   }
 
@@ -706,6 +762,7 @@
     var d = config.delays;
     await openLineForm(entry.status === 'error');
 
+    var warnings = [];
     var fields = fieldsToFill();
     for (var i = 0; i < fields.length; i++) {
       var field = fields[i];
@@ -720,13 +777,18 @@
       try {
         await setField(el, String(value), field);
       } catch (e) {
-        throw new Error(field.label + ': ' + e.message);
+        // A category or zip code Coupa doesn't list: fill the rest and leave it to you.
+        if (field.key !== 'expenseType' && field.key !== 'zipCode') throw new Error(field.label + ': ' + e.message);
+        warnings.push('Pick the ' + field.label + ' in Coupa: ' + e.message);
       }
       await sleep(field.waitAfter || d.betweenFields);
     }
+    if (!line.expenseType) warnings.push('Pick the Expense Category in Coupa (the app has no Coupa category for “' + line.category + '”).');
 
-    if (trip().project) await applyProject(trip());
+    var code = codeFor(entry);
+    if (code) await applyCostCode(code);
 
+    if (warnings.length) return warnings.join(' ') + ' Then click Save in Coupa, and Fill next.';
     if (config.autoSave && config.save) {
       realClick(await waitFor(config.save, d.fieldTimeout, lineForm));
       var saved = await waitUntil(function () {
@@ -762,7 +824,8 @@
   async function fillNext() {
     if (running || !trip()) return false;
     var list = lines();
-    list.forEach(function (l) { if (l.status === 'filled' && !l.error) l.status = 'done'; });
+    // Moving on means the lines waiting for you were saved in Coupa.
+    list.forEach(function (l) { if (l.status === 'filled') { l.status = 'done'; l.error = ''; } });
     var index = nextPendingIndex(state.current);
     if (index === -1) index = nextPendingIndex(0);
     if (index === -1) {
@@ -1050,16 +1113,19 @@
       html += '<div class="row"><button class="btn primary grow" data-act="newReport"' + (running ? ' disabled' : '') + '>New Coupa report for this trip</button>' +
         '<button class="btn" data-act="useOpen"' + (running ? ' disabled' : '') + ' title="Add lines to the report that is open in Coupa">Use open report</button></div>';
     }
-    if (t.project) {
-      var recipe = recipes[t.project.key];
-      html += '<div class="muted">Project <b>' + esc(t.project.label) + '</b> · WBS <b>' + esc(t.project.wbs) + '</b></div>';
+    var codes = tripCodes();
+    if (codes.length) {
+      html += '<div class="muted">' + codes.map(function (code) {
+        return (canSetAccount(code) ? '<span class="ok">✓</span> ' : '<span class="bad">✗</span> ') +
+          'Project <b>' + esc(code.label) + '</b> · WBS ' + esc(code.wbs);
+      }).join('<br>') + '</div>';
       if (ui.teaching) {
         html += '<div class="row"><span class="grow muted">Watching the Account search window…</span><button class="btn" data-act="cancelTeach">Cancel</button></div>';
-      } else if (recipe) {
-        html += '<div class="row"><span class="grow ok" title="' + esc(recipe.account) + '">✓ Cost code learned</span>' +
-          '<button class="btn" data-act="teach"' + (running || !t.report ? ' disabled' : '') + '>Re-teach</button></div>';
+      } else if (recipes.__template) {
+        html += '<div class="row"><span class="grow ok">✓ Cost codes are set automatically</span>' +
+          '<button class="btn" data-act="teach"' + (running || !t.report ? ' disabled' : '') + ' title="Show me again how you pick a cost code">Re-teach</button></div>';
       } else {
-        html += '<div class="row"><span class="grow bad">Cost code not learned yet</span>' +
+        html += '<div class="row"><span class="grow bad">Show me once how you pick a cost code</span>' +
           '<button class="btn primary" data-act="teach"' + (running || !t.report ? ' disabled' : '') + '>Teach</button></div>';
       }
     }
@@ -1081,7 +1147,7 @@
         '</div>';
     });
     html += '</div>';
-    var canFill = !running && !!t.report && (!t.project || !!recipes[t.project.key]);
+    var canFill = !running && !!t.report && tripCodes().every(canSetAccount);
     html += '<div class="row">' +
       '<button class="btn primary grow" data-act="next"' + (canFill ? '' : ' disabled') + '>' + (running ? 'Working…' : 'Fill next') + '</button>' +
       (config.autoSave

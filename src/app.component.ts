@@ -8,7 +8,7 @@ import { Trip } from './models/trip.model';
 import { TripReport } from './models/trip-report.model';
 import { MatIconModule } from '@angular/material/icon';
 import { CoupaPanelComponent } from './coupa/coupa-panel.component';
-import { CoupaService, defaultReportTitle, projectLabel } from './coupa/coupa.service';
+import { CoupaService, DEFAULT_WBS, defaultReportTitle, projectLabel } from './coupa/coupa.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -37,6 +37,7 @@ export class AppComponent {
   private nextTripId = 1;
   readonly defaultReportTitle = defaultReportTitle;
   readonly projectLabel = projectLabel;
+  readonly defaultWbs = DEFAULT_WBS;
   private readonly coupa = inject(CoupaService);
   readonly projects = this.coupa.projects;
   // Trip whose "add project" form is open.
@@ -142,11 +143,26 @@ export class AppComponent {
     this.updateTripDetail(tripId, 'projectId', value);
   }
 
-  addProject(tripId: number, number: string, name: string, wbs: string): void {
+  addProject(tripId: number, company: string, number: string, name: string, wbs: string): void {
     if (!number.trim() && !name.trim()) return;
-    const project = this.coupa.addProject(number, name, wbs);
+    const project = this.coupa.addProject(company, number, name, wbs);
     this.addingProjectFor.set(null);
     this.updateTripDetail(tripId, 'projectId', project.id);
+  }
+
+  // Charges one expense to a different project than its trip's ('' = the trip's).
+  setExpenseProject(reportIndex: number, expenseIndex: number, projectId: string): void {
+    this.reports.update(reports => reports && reports.map((r, i) => i !== reportIndex ? r : {
+      ...r,
+      expenses: r.expenses.map((e, j) => j !== expenseIndex ? e : { ...e, projectId: projectId || undefined }),
+    }));
+  }
+
+  // What an expense line is charged to when it doesn't pick its own project.
+  tripProjectName(tripId: number | undefined): string {
+    const projectId = this.trips().find(t => t.id === tripId)?.projectId;
+    const project = this.projects().find(p => p.id === projectId);
+    return project ? `Trip project (${projectLabel(project)})` : 'Default cost center';
   }
 
   projectWbs(projectId: string | undefined): string {
@@ -347,7 +363,13 @@ export class AppComponent {
       case 'airfare': return 'bg-sky-100 text-sky-800';
       case 'lodging': return 'bg-amber-100 text-amber-800';
       case 'meals': return 'bg-rose-100 text-rose-800';
+      case 'rental car':
+      case 'fuel':
+      case 'taxi & ride share':
+      case 'parking & tolls':
       case 'transportation': return 'bg-teal-100 text-teal-800';
+      case 'travel fees': return 'bg-indigo-100 text-indigo-800';
+      case 'supplies': return 'bg-lime-100 text-lime-800';
       case 'entertainment': return 'bg-purple-100 text-purple-800';
       default: return 'bg-slate-100 text-slate-800';
     }

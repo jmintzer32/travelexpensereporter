@@ -1,6 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { Trip } from '../models/trip.model';
 import { TripReport } from '../models/trip-report.model';
+import { EXPENSE_CATEGORIES } from '../models/expense-categories';
 
 export type CoupaDateFormat = 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD' | 'MM/DD/YY';
 
@@ -9,7 +10,8 @@ export interface CoupaSettings {
   currency: string;
   // Used for trips that don't have their own business purpose.
   defaultPurpose: string;
-  // App category (Airfare, Lodging, ...) -> exact Coupa expense category name.
+  // App category (Airfare, Lodging, ...) -> Coupa Expense Category name, or
+  // the start of it. Blank means you pick it in Coupa.
   expenseTypes: Record<string, string>;
 }
 
@@ -17,9 +19,21 @@ export interface CoupaSettings {
 // account-picking steps the filler learned for it.
 export interface CoupaProject {
   id: string;
+  // Company code the project is under, e.g. "4010".
+  company: string;
+  // Project number, e.g. "12345B1".
   number: string;
   name: string;
-  // Usual WBS element, e.g. "Travel".
+  // Usual WBS element, e.g. "01A.021200".
+  wbs: string;
+}
+
+// What the Coupa filler needs to set a line's Account to a project.
+export interface CoupaCostCode {
+  key: string;
+  label: string;
+  company: string;
+  number: string;
   wbs: string;
 }
 
@@ -34,7 +48,9 @@ export interface CoupaLine {
   purpose: string;
   zipCode: string;
   category: string;
-  // For copying by hand in entry mode; the filler uses CoupaTrip.project.
+  // Absent when the line keeps Coupa's default account.
+  costCode?: CoupaCostCode;
+  // The same, for copying by hand in entry mode.
   project: string;
   wbs: string;
 }
@@ -44,8 +60,8 @@ export interface CoupaTrip {
   title: string;
   startDate: string;
   endDate: string;
-  // Absent when lines keep Coupa's default account.
-  project?: { key: string; label: string; wbs: string };
+  // The trip's project, when it has one. Lines can override it.
+  project?: CoupaCostCode;
   lines: CoupaLine[];
 }
 
@@ -57,25 +73,34 @@ export interface CoupaPayload {
   trips: CoupaTrip[];
 }
 
-export const APP_CATEGORIES = ['Airfare', 'Lodging', 'Meals', 'Transportation', 'Entertainment', 'Other'];
+export const APP_CATEGORIES = EXPENSE_CATEGORIES;
 
 // Coupa asks for a zip code only on these.
 const ZIP_CATEGORIES = ['Meals', 'Lodging', 'Entertainment'];
 
-const SETTINGS_KEY = 'coupa.settings.v1';
+const SETTINGS_KEY = 'coupa.settings.v2';
 const PROJECTS_KEY = 'coupa.projects.v1';
 
 const DEFAULT_SETTINGS: CoupaSettings = {
   dateFormat: 'MM/DD/YYYY',
   currency: 'USD',
   defaultPurpose: 'Business travel',
+  // Coupa's names, as used on past reports. A start that is unique is
+  // enough, since the filler picks the first Coupa choice that begins with it.
   expenseTypes: {
     Airfare: 'Airfare',
-    Lodging: 'Hotel',
-    Meals: 'Meals',
-    Transportation: 'Ground Transportation',
-    Entertainment: 'Entertainment',
-    Other: 'Other',
+    Lodging: 'Lodging',
+    Meals: 'Meals - Travel',
+    'Rental Car': 'Rental Car',
+    Fuel: 'Rental Car - Fuel',
+    'Taxi & Ride Share': 'Local Transportation - Taxi',
+    'Parking & Tolls': 'Local Transportation - Parking',
+    'Travel Fees': 'Travel Fees',
+    Supplies: 'Jobsite Supplies',
+    Other: '',
+    // Categories from reports generated before the list above.
+    Transportation: 'Local Transportation - Taxi',
+    Entertainment: '',
   },
 };
 
@@ -84,15 +109,32 @@ export class CoupaService {
   readonly settings = signal<CoupaSettings>(this.loadSettings());
   readonly projects = signal<CoupaProject[]>(this.loadProjects());
 
-  addProject(number: string, name: string, wbs: string): CoupaProject {
+  addProject(company: string, number: string, name: string, wbs: string): CoupaProject {
     const project: CoupaProject = {
-      id: `p${Date.now().toString(36)}`,
+      id: `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+      company: company.trim(),
       number: number.trim(),
       name: name.trim(),
-      wbs: wbs.trim() || 'Travel',
+      wbs: wbs.trim() || DEFAULT_WBS,
     };
     this.saveProjects([...this.projects(), project]);
     return project;
+  }
+
+  // Adds a project for each cost code like "4010-Project WBS-12345B1-01A.021200"
+  // (optionally followed by a name) not already in the list.
+  // Returns how many were added.
+  addProjectsFromCostCodes(text: string): number {
+    let added = 0;
+    for (const line of text.split(/\r?\n/)) {
+      const match = /(\d{3,5})\s*-\s*Project WBS\s*-\s*([A-Za-z0-9]+)-([A-Za-z0-9.]+)\s*[-–,:]?\s*(.*)$/.exec(line.trim());
+      if (!match) continue;
+      const [, company, number, wbs, name] = match;
+      if (this.projects().some(p => p.number.toLowerCase() === number.toLowerCase())) continue;
+      this.addProject(company, number, name.trim(), wbs);
+      added++;
+    }
+    return added;
   }
 
   updateProject(id: string, patch: Partial<Omit<CoupaProject, 'id'>>): void {
@@ -127,26 +169,31 @@ export class CoupaService {
     return reports.map(report => {
       const trip = trips.find(t => t.id === report.trip.id);
       const purpose = trip?.purpose || s.defaultPurpose;
-      const project = this.projects().find(p => p.id === trip?.projectId);
-      const wbs = project ? trip?.wbs || project.wbs : '';
+      const tripProject = this.projects().find(p => p.id === trip?.projectId);
+      const tripCode = tripProject ? costCode(tripProject, trip?.wbs) : undefined;
       return {
         title: trip?.reportTitle || defaultReportTitle(report.trip.startDate),
         startDate: report.trip.startDate,
         endDate: report.trip.endDate,
-        project: project ? { key: projectKey(project), label: projectLabel(project), wbs } : undefined,
-        lines: report.expenses.map(e => ({
-          date: formatDate(e.date, s.dateFormat),
-          expenseType: s.expenseTypes[e.category] || e.category,
-          merchant: e.merchant,
-          amount: e.amount.toFixed(2),
-          currency: s.currency,
-          description: e.description,
-          purpose,
-          zipCode: ZIP_CATEGORIES.includes(e.category) && e.zipCode && e.zipCode !== 'N/A' ? e.zipCode : '',
-          category: e.category,
-          project: project ? projectLabel(project) : '',
-          wbs,
-        })),
+        project: tripCode,
+        lines: report.expenses.map(e => {
+          const lineProject = e.projectId ? this.projects().find(p => p.id === e.projectId) : undefined;
+          const code = lineProject ? costCode(lineProject) : tripCode;
+          return {
+            date: formatDate(e.date, s.dateFormat),
+            expenseType: e.category in s.expenseTypes ? s.expenseTypes[e.category] : e.category,
+            merchant: e.merchant,
+            amount: e.amount.toFixed(2),
+            currency: s.currency,
+            description: e.description,
+            purpose,
+            zipCode: ZIP_CATEGORIES.includes(e.category) && e.zipCode && e.zipCode !== 'N/A' ? e.zipCode : '',
+            category: e.category,
+            costCode: code,
+            project: code ? code.label : '',
+            wbs: code ? code.wbs : '',
+          };
+        }),
       };
     });
   }
@@ -198,9 +245,17 @@ export function projectLabel(p: CoupaProject): string {
   return [p.number, p.name].filter(Boolean).join(' – ');
 }
 
+export const DEFAULT_WBS = '01A.021200';
+
 // The project number is what Coupa knows it by; fall back to the name.
-function projectKey(p: CoupaProject): string {
-  return (p.number || p.name).trim().toLowerCase();
+function costCode(p: CoupaProject, wbs?: string): CoupaCostCode {
+  return {
+    key: (p.number || p.name).trim().toLowerCase(),
+    label: projectLabel(p),
+    company: p.company || '',
+    number: p.number,
+    wbs: wbs || p.wbs,
+  };
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
