@@ -1,42 +1,49 @@
 document.addEventListener('DOMContentLoaded', () => {
   const statusBox = document.getElementById('status-box');
   const fillBtn = document.getElementById('fill-btn');
-  let pendingData = [];
+  let pendingPayload = null;
 
   // Check storage for expenses sent from the web app
-  chrome.storage.local.get(['pendingExpenses'], (result) => {
-    if (result.pendingExpenses && result.pendingExpenses.length > 0) {
-      pendingData = result.pendingExpenses;
-      statusBox.innerHTML = `<strong>Ready!</strong><br>${pendingData.length} expenses are waiting to be synced.`;
-      fillBtn.disabled = false;
+  chrome.storage.local.get(['pendingPayload'], (result) => {
+    const payload = result.pendingPayload;
+    if (payload && payload.lines && payload.lines.length > 0) {
+      pendingPayload = payload;
+      statusBox.innerHTML = `<strong>Ready!</strong><br>${payload.lines.length} expense lines are waiting.`;
     } else {
-      statusBox.innerHTML = `No expenses found. Go to the Travel Expense Reporter app and click "Send to Coupa Extension".`;
-      fillBtn.disabled = true;
+      statusBox.innerHTML = 'No expenses yet. In Travel Expense Reporter, click <b>Send</b> under “Chrome extension”. You can still open the filler and paste data.';
     }
+    fillBtn.disabled = false;
   });
 
-  // Handle the click event to inject the script into the active tab
+  // Inject the shared filler (same code as the bookmarklet) into the active tab.
   fillBtn.addEventListener('click', async () => {
-    // Get the current active tab (which should be Coupa)
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    
-    if (!tab.url.toLowerCase().includes('coupa')) {
-      const confirmRun = confirm("This doesn't look like a Coupa URL. Are you sure you want to run the automation here?");
+
+    if (!tab.url || !tab.url.toLowerCase().includes('coupa')) {
+      const confirmRun = confirm("This doesn't look like a Coupa page. Open the filler here anyway?");
       if (!confirmRun) return;
     }
 
     fillBtn.disabled = true;
-    fillBtn.innerText = "Injecting...";
+    fillBtn.innerText = 'Opening…';
 
-    // Inject the content script into the Coupa page
-    chrome.scripting.executeScript({
+    await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      files: ['content-coupa.js']
-    }, () => {
-      // After injecting, send the message to start filling
-      chrome.tabs.sendMessage(tab.id, { type: 'START_FILLING', data: pendingData }, (response) => {
-        window.close(); // Close the popup
-      });
+      world: 'MAIN', // same context as the bookmarklet, so it sees Coupa's own jQuery
+      files: ['coupa-filler.js']
     });
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: 'MAIN',
+      func: (payload) => window.__coupaFiller.open(payload),
+      args: [pendingPayload]
+    });
+
+    if (pendingPayload) {
+      // Loaded into the panel (which remembers it), so clear the badge.
+      chrome.storage.local.remove('pendingPayload');
+      chrome.action.setBadgeText({ text: '' });
+    }
+    window.close();
   });
 });

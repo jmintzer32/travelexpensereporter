@@ -101,3 +101,13 @@ To push this code to GitHub:
 ## Configuration
 
 -   **GEMINI_API_KEY**: Required environment variable for the AI features to work. Get your key from [Google AI Studio](https://aistudio.google.com/).
+
+## Entering expenses into Coupa
+
+After generating reports, the **4. Enter into Coupa** panel offers three ways to get lines into Coupa. The settings button (sliders icon) sets the date format, currency, and the exact Coupa expense type name for each category.
+
+- **Entry mode**: click-to-copy each field in Coupa's order. `Enter` copies the next field, `1`–`6` copy a specific one, `↑`/`↓` change line. Nothing to install.
+- **Bookmarklet**: drag the "Coupa Filler" button to your bookmarks bar, click **Copy for bookmarklet**, then click the bookmark in Coupa and paste. On first use, open the panel's **Setup** tab and use **Pick** to point at Coupa's Add Line / Save buttons and each field. The setup is saved in your browser for the Coupa site, and **Copy setup** / **Import setup** move it between computers.
+- **Chrome extension** (`coupa-extension/`, load unpacked at `chrome://extensions`): same filler, without copy and paste. It runs only on this app's URL and on whatever tab you open it in.
+
+The bookmarklet and the extension share one script, `public/coupa-filler.js`. `npm run build` copies it into `coupa-extension/` (via `scripts/sync-extension.mjs`), so edit only the copy in `public/`.

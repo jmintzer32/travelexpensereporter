@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "ng serve",
+    "prebuild": "node scripts/sync-extension.mjs",
     "build": "ng build",
     "lint": "tsc --noEmit",
     "preview": "ng serve --configuration=production"

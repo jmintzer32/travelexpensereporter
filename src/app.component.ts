@@ -7,6 +7,7 @@ import { Expense } from './models/expense.model';
 import { Trip } from './models/trip.model';
 import { TripReport } from './models/trip-report.model';
 import { MatIconModule } from '@angular/material/icon';
+import { CoupaPanelComponent } from './coupa/coupa-panel.component';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -24,7 +25,8 @@ interface UploadedFile {
   imports: [
     CommonModule, 
     FormsModule, 
-    MatIconModule
+    MatIconModule,
+    CoupaPanelComponent
   ],
 })
 export class AppComponent {
@@ -384,21 +386,5 @@ export class AppComponent {
     });
 
     doc.save('expense-report.pdf');
-  }
-
-  sendToCoupa(): void {
-    const reports = this.reports();
-    if (!reports || reports.length === 0) return;
-
-    // Flatten all expenses from all trips into one array for the extension
-    const allExpenses = reports.flatMap(r => r.expenses);
-
-    // Dispatch a custom event that the extension content script will listen for
-    const event = new CustomEvent('SYNC_COUPA_EXPENSES', { 
-      detail: allExpenses 
-    });
-    window.dispatchEvent(event);
-    
-    alert(`Sent ${allExpenses.length} expenses to the Chrome Extension!\n\n1. Open your Coupa Expense Report tab.\n2. Click the Extension icon in your browser toolbar.\n3. Click "Fill Coupa Report".`);
   }
 }

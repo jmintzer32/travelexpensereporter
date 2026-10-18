@@ -1,27 +1,27 @@
 {
   "manifest_version": 3,
-  "name": "Coupa Expense Auto-Filler",
-  "version": "1.0",
-  "description": "Bridges the Travel Expense Reporter app with Coupa to automate manual data entry.",
+  "name": "Coupa Expense Filler",
+  "version": "1.1",
+  "description": "Fills Coupa expense lines with expenses from the Travel Expense Reporter app.",
   "permissions": [
     "storage",
     "activeTab",
     "scripting"
-  ],
-  "host_permissions": [
-    "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "https://travelexpensereporter-git-103038434391.us-central1.run.app/*",
+        "http://localhost/*"
+      ],
       "js": ["content-app.js"]
     }
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Coupa Auto-Filler"
+    "default_title": "Coupa Expense Filler"
   }
 }

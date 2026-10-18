@@ -1,14 +1,22 @@
-// This script runs on ALL pages, but it specifically listens for a custom event
-// dispatched by our Travel Expense Reporter Angular application.
+// Runs only on the Travel Expense Reporter app (see manifest.json "matches").
+// Lets the app know the extension is installed, and forwards the expenses the
+// app sends to the extension's background worker.
+
+document.documentElement.setAttribute(
+  'data-coupa-filler-extension',
+  chrome.runtime.getManifest().version
+);
 
 window.addEventListener('SYNC_COUPA_EXPENSES', (event) => {
-  const expenses = event.detail;
-  console.log('Extension intercepted expenses from web app:', expenses);
-  
-  // Send the data to the extension's background service worker
-  chrome.runtime.sendMessage({ type: 'SAVE_EXPENSES', data: expenses }, (response) => {
-    if (response && response.success) {
-      console.log('Successfully sent to extension background.');
-    }
-  });
+  let payload;
+  try {
+    payload = JSON.parse(event.detail);
+  } catch (e) {
+    console.error('Coupa Filler: could not read expenses from the app', e);
+    return;
+  }
+  if (!payload || payload.source !== 'travel-expense-reporter' || !Array.isArray(payload.lines)) {
+    return;
+  }
+  chrome.runtime.sendMessage({ type: 'SAVE_EXPENSES', data: payload });
 });

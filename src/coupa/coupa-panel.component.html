@@ -1,0 +1,177 @@
+<section class="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 space-y-6">
+  <div class="flex items-center gap-4">
+    <div class="flex items-center justify-center w-10 h-10 bg-teal-50 text-teal-600 rounded-xl">
+      <mat-icon class="!text-xl !w-auto !h-auto">output</mat-icon>
+    </div>
+    <div class="flex-1">
+      <h2 class="text-lg font-bold text-slate-900">4. Enter into Coupa</h2>
+      <p class="text-xs text-slate-400 font-medium uppercase tracking-wider">{{ lines().length }} lines ready</p>
+    </div>
+    <button
+      (click)="showSettings.set(!showSettings())"
+      class="w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
+      [class]="showSettings() ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-700'"
+      title="Coupa format settings"
+      aria-label="Coupa format settings"
+    >
+      <mat-icon>tune</mat-icon>
+    </button>
+  </div>
+
+  @if (showSettings()) {
+    <div class="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+      <p class="text-xs text-slate-500 leading-relaxed">
+        These decide exactly what gets typed into Coupa. Use your company’s Coupa expense type names, spelled exactly as they appear in Coupa.
+      </p>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="block">
+          <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Date format</span>
+          <select
+            class="w-full bg-white rounded-xl border border-slate-200 px-3 py-2 text-sm"
+            [ngModel]="settings().dateFormat"
+            (ngModelChange)="setDateFormat($event)"
+          >
+            @for (f of dateFormats; track f) {
+              <option [value]="f">{{ f }}</option>
+            }
+          </select>
+        </label>
+        <label class="block">
+          <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Currency</span>
+          <input
+            class="w-full bg-white rounded-xl border border-slate-200 px-3 py-2 text-sm uppercase"
+            maxlength="3"
+            [ngModel]="settings().currency"
+            (change)="setCurrency($any($event.target).value)"
+          >
+        </label>
+      </div>
+      <div>
+        <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Expense type in Coupa</span>
+        <div class="space-y-2">
+          @for (c of categories; track c) {
+            <label class="flex items-center gap-3">
+              <span class="w-32 shrink-0 text-sm text-slate-600">{{ c }}</span>
+              <mat-icon class="!text-base !w-auto !h-auto text-slate-300">arrow_forward</mat-icon>
+              <input
+                class="flex-1 min-w-0 bg-white rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                [ngModel]="settings().expenseTypes[c]"
+                (change)="setExpenseType(c, $any($event.target).value)"
+              >
+            </label>
+          }
+        </div>
+      </div>
+      <button (click)="resetSettings()" class="text-xs font-bold text-slate-400 hover:text-slate-700 uppercase tracking-wider">Reset to defaults</button>
+    </div>
+  }
+
+  <!-- Option A: entry mode -->
+  <div class="flex flex-col sm:flex-row sm:items-center gap-4 p-5 rounded-2xl border border-slate-200">
+    <div class="flex-1">
+      <p class="font-bold text-slate-900 text-sm">Copy field by field</p>
+      <p class="text-xs text-slate-500 mt-0.5 leading-relaxed">Works everywhere. Each value is ready to paste, in the order Coupa asks for it.</p>
+    </div>
+    <button
+      (click)="entryModeOpen.set(true)"
+      class="shrink-0 px-5 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center gap-2"
+    >
+      <mat-icon class="text-teal-500">content_paste_go</mat-icon>
+      Entry mode
+    </button>
+  </div>
+
+  <!-- Option B: bookmarklet -->
+  <div class="p-5 rounded-2xl border border-indigo-200 bg-indigo-50/30 space-y-4">
+    <div class="flex flex-col gap-4">
+      <div>
+        <p class="font-bold text-slate-900 text-sm">Auto-fill with the bookmarklet</p>
+        <p class="text-xs text-slate-500 mt-0.5 leading-relaxed">A bookmark that fills Coupa’s line form for you. Nothing to install.</p>
+      </div>
+      <button
+        (click)="copyForBookmarklet()"
+        class="w-full px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-100 flex items-center justify-center gap-2"
+      >
+        <mat-icon>bolt</mat-icon>
+        Copy for bookmarklet
+      </button>
+    </div>
+
+    <button
+      (click)="showBookmarkletHelp.set(!showBookmarkletHelp())"
+      class="text-xs font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+    >
+      {{ showBookmarkletHelp() ? 'Hide' : 'Set up' }} the bookmarklet
+      <mat-icon class="!text-sm !w-auto !h-auto transition-transform" [class.rotate-180]="showBookmarkletHelp()">expand_more</mat-icon>
+    </button>
+
+    @if (showBookmarkletHelp()) {
+      <ol class="text-xs text-slate-600 leading-relaxed space-y-3 list-decimal pl-4">
+        <li>
+          Show your bookmarks bar (Ctrl+Shift+B, or ⌘+Shift+B on Mac), then drag this button onto it:
+          <div class="mt-2">
+            @if (bookmarkletHref(); as href) {
+              <a
+                [href]="href"
+                (click)="$event.preventDefault()"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border-2 border-dashed border-indigo-300 text-indigo-700 font-bold cursor-grab"
+                title="Drag me to your bookmarks bar"
+              >
+                <mat-icon class="!text-base !w-auto !h-auto">bookmark_add</mat-icon>
+                Coupa Filler
+              </a>
+            } @else {
+              <span class="text-slate-400">Loading…</span>
+            }
+          </div>
+          <p class="mt-2">
+            Can’t drag it?
+            <button (click)="copyBookmarkletCode()" class="font-bold text-indigo-600 hover:underline">Copy the bookmarklet code</button>,
+            add a new bookmark named “Coupa Filler”, and paste the code as its URL.
+          </p>
+        </li>
+        <li>Here, click <b>Copy for bookmarklet</b>.</li>
+        <li>In Coupa, open your expense report and click the <b>Coupa Filler</b> bookmark. Paste into the panel that appears.</li>
+        <li>
+          First time only: open the panel’s <b>Setup</b> tab and use <b>Pick</b> to point at Coupa’s “Add line” and “Save” buttons and each field.
+          After that, click <b>Fill next</b> for each line.
+        </li>
+        <li class="text-slate-400">When this app updates the bookmarklet, drag it to your bookmarks bar again. Your Coupa setup is kept.</li>
+      </ol>
+    }
+  </div>
+
+  <!-- Option C: extension -->
+  <div class="flex flex-col sm:flex-row sm:items-center gap-4 p-5 rounded-2xl border border-slate-200">
+    <div class="flex-1">
+      <p class="font-bold text-slate-900 text-sm flex items-center gap-2">
+        Chrome extension
+        @if (extensionVersion()) {
+          <span class="px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">Installed</span>
+        } @else {
+          <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">Not detected</span>
+        }
+      </p>
+      <p class="text-xs text-slate-500 mt-0.5 leading-relaxed">Same auto-fill, no copy and paste. Only if your company allows the extension.</p>
+    </div>
+    <button
+      (click)="sendToExtension()"
+      [disabled]="!extensionVersion()"
+      class="shrink-0 px-5 py-3 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-slate-700 font-bold rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center gap-2"
+    >
+      <mat-icon class="text-teal-500">extension</mat-icon>
+      Send
+    </button>
+  </div>
+
+  @if (notice()) {
+    <div class="p-4 bg-teal-50 border border-teal-100 rounded-2xl text-teal-800 text-sm flex gap-3 items-start" role="status">
+      <mat-icon class="text-teal-500 !w-auto !h-auto shrink-0">check_circle</mat-icon>
+      <span>{{ notice() }}</span>
+    </div>
+  }
+</section>
+
+@if (entryModeOpen()) {
+  <app-coupa-entry-mode [lines]="lines()" (closed)="entryModeOpen.set(false)" />
+}

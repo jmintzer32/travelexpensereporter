@@ -137,24 +137,16 @@
             }
           </button>
 
-          @if (reports()) {
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <button 
-                (click)="exportPdf()" 
-                class="w-full py-4 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 flex items-center justify-center gap-3 group"
-              >
-                <mat-icon class="text-rose-500 group-hover:scale-110 transition-transform">picture_as_pdf</mat-icon>
-                <span class="tracking-tight">Export to PDF</span>
-              </button>
+          @if (reports(); as reportList) {
+            <button 
+              (click)="exportPdf()" 
+              class="w-full py-4 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 flex items-center justify-center gap-3 group"
+            >
+              <mat-icon class="text-rose-500 group-hover:scale-110 transition-transform">picture_as_pdf</mat-icon>
+              <span class="tracking-tight">Export to PDF</span>
+            </button>
 
-              <button 
-                (click)="sendToCoupa()" 
-                class="w-full py-4 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 flex items-center justify-center gap-3 group"
-              >
-                <mat-icon class="text-teal-500 group-hover:scale-110 transition-transform">extension</mat-icon>
-                <span class="tracking-tight">Send to Coupa</span>
-              </button>
-            </div>
+            <app-coupa-panel [reports]="reportList" />
           }
 
           @if (errorMessage()) {
