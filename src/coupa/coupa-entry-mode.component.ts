@@ -16,6 +16,8 @@ const FIELDS: EntryField[] = [
   { key: 'merchant', label: 'Merchant' },
   { key: 'purpose', label: 'Business Purpose' },
   { key: 'zipCode', label: 'Zip Code' },
+  { key: 'project', label: 'Project' },
+  { key: 'wbs', label: 'WBS Element' },
 ];
 
 interface EntryLine extends CoupaLine {

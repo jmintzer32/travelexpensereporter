@@ -8,7 +8,7 @@ import { Trip } from './models/trip.model';
 import { TripReport } from './models/trip-report.model';
 import { MatIconModule } from '@angular/material/icon';
 import { CoupaPanelComponent } from './coupa/coupa-panel.component';
-import { defaultReportTitle } from './coupa/coupa.service';
+import { CoupaService, defaultReportTitle, projectLabel } from './coupa/coupa.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -36,6 +36,11 @@ export class AppComponent {
   private pdfjsLib: any;
   private nextTripId = 1;
   readonly defaultReportTitle = defaultReportTitle;
+  readonly projectLabel = projectLabel;
+  private readonly coupa = inject(CoupaService);
+  readonly projects = this.coupa.projects;
+  // Trip whose "add project" form is open.
+  readonly addingProjectFor = signal<number | null>(null);
 
   uploadedFiles = signal<UploadedFile[]>([]);
   trips = signal<Trip[]>([]);
@@ -128,7 +133,27 @@ export class AppComponent {
     this.trips.update(currentTrips => [...currentTrips, newTrip]);
   }
 
-  updateTripDetail(id: number, field: 'purpose' | 'reportTitle', value: string): void {
+  selectProject(tripId: number, value: string): void {
+    if (value === '__new') {
+      this.addingProjectFor.set(tripId);
+      return;
+    }
+    this.addingProjectFor.set(null);
+    this.updateTripDetail(tripId, 'projectId', value);
+  }
+
+  addProject(tripId: number, number: string, name: string, wbs: string): void {
+    if (!number.trim() && !name.trim()) return;
+    const project = this.coupa.addProject(number, name, wbs);
+    this.addingProjectFor.set(null);
+    this.updateTripDetail(tripId, 'projectId', project.id);
+  }
+
+  projectWbs(projectId: string | undefined): string {
+    return this.projects().find(p => p.id === projectId)?.wbs ?? '';
+  }
+
+  updateTripDetail(id: number, field: 'purpose' | 'reportTitle' | 'projectId' | 'wbs', value: string): void {
     this.trips.update(currentTrips =>
       currentTrips.map(trip =>
         trip.id === id ? { ...trip, [field]: value.trim() } : trip

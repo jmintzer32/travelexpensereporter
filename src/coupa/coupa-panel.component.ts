@@ -25,6 +25,7 @@ export class CoupaPanelComponent {
   readonly trips = input.required<Trip[]>();
 
   readonly settings = this.coupa.settings;
+  readonly projects = this.coupa.projects;
   readonly categories = APP_CATEGORIES;
   readonly dateFormats: CoupaDateFormat[] = ['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD', 'MM/DD/YY'];
 
@@ -59,6 +60,14 @@ export class CoupaPanelComponent {
 
   setExpenseType(category: string, coupaType: string): void {
     this.coupa.setExpenseType(category, coupaType.trim());
+  }
+
+  updateProject(id: string, field: 'number' | 'name' | 'wbs', value: string): void {
+    this.coupa.updateProject(id, { [field]: value.trim() });
+  }
+
+  removeProject(id: string): void {
+    this.coupa.removeProject(id);
   }
 
   resetSettings(): void {

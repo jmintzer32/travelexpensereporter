@@ -70,6 +70,25 @@
           }
         </div>
       </div>
+      <div>
+        <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Projects</span>
+        @if (projects().length === 0) {
+          <p class="text-xs text-slate-500">No projects yet. Add one from a trip’s Project list in step 2.</p>
+        }
+        <div class="space-y-2">
+          @for (p of projects(); track p.id) {
+            <div class="flex items-center gap-2">
+              <input class="flex-1 min-w-0 bg-white rounded-xl border border-slate-200 px-3 py-2 text-sm max-w-[6.5rem]" placeholder="Number" [ngModel]="p.number" (change)="updateProject(p.id, 'number', $any($event.target).value)">
+              <input class="flex-1 min-w-0 bg-white rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Name" [ngModel]="p.name" (change)="updateProject(p.id, 'name', $any($event.target).value)">
+              <input class="flex-1 min-w-0 bg-white rounded-xl border border-slate-200 px-3 py-2 text-sm max-w-[5.5rem]" placeholder="WBS" title="Usual WBS element" [ngModel]="p.wbs" (change)="updateProject(p.id, 'wbs', $any($event.target).value)">
+              <button (click)="removeProject(p.id)" class="w-8 h-8 shrink-0 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 flex items-center justify-center" aria-label="Remove project">
+                <mat-icon class="!text-base !w-auto !h-auto">delete</mat-icon>
+              </button>
+            </div>
+          }
+        </div>
+        <p class="text-xs text-slate-400 mt-2 leading-relaxed">The Coupa Filler learns each project’s cost code the first time you use it (the <b>Teach</b> button), and remembers it after that.</p>
+      </div>
       <button (click)="resetSettings()" class="text-xs font-bold text-slate-400 hover:text-slate-700 uppercase tracking-wider">Reset to defaults</button>
     </div>
   }
