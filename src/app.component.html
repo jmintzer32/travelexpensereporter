@@ -12,6 +12,13 @@
         Effortlessly extract and categorize expenses from your credit card statements. 
         Define your trip dates and let AI handle the itemization.
       </p>
+      <button
+        (click)="guide.open('setup')"
+        class="mt-6 inline-flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-50 text-indigo-700 font-bold rounded-2xl border border-slate-200 shadow-sm transition-colors"
+      >
+        <mat-icon class="!text-lg !w-auto !h-auto">menu_book</mat-icon>
+        How it works: Coupa setup &amp; step-by-step
+      </button>
     </header>
 
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
@@ -151,6 +158,7 @@
                       }
                       <option value="__new">+ Add a project…</option>
                     </select>
+                    <p class="mt-1.5 text-[11px] text-slate-400">The Coupa Filler enters this cost code for you in Coupa. <button (click)="guide.open('teach')" class="font-bold text-indigo-500 hover:underline">How?</button></p>
                   </div>
                   @if (addingProjectFor() === trip.id) {
                     <div class="p-4 bg-white rounded-xl border border-indigo-200 space-y-3">
@@ -343,6 +351,7 @@
             <p class="text-slate-400 max-w-sm leading-relaxed">
               Upload your credit card statements and define your trip periods to see your itemized travel expenses here.
             </p>
+            <button (click)="guide.open('each-time')" class="mt-4 text-sm font-bold text-indigo-600 hover:underline">New here? See how it works, start to finish</button>
             <div class="mt-10 flex gap-4">
               <div class="flex flex-col items-center gap-2">
                 <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-400">1</div>
@@ -364,4 +373,5 @@
       </div>
     </div>
   </div>
+  <app-guide />
 </main>

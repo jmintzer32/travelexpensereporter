@@ -8,3 +8,20 @@
 body {
   font-family: var(--font-sans);
 }
+
+/* "How it works" guide */
+app-guide .step {
+  @apply w-7 h-7 shrink-0 mt-0.5 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center;
+}
+app-guide .step-title {
+  @apply font-bold text-slate-900 mb-1;
+}
+app-guide .section-label {
+  @apply text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4;
+}
+app-guide kbd {
+  @apply px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-700;
+}
+app-guide code {
+  @apply px-1 py-0.5 rounded bg-slate-100 text-[12px] text-slate-700;
+}

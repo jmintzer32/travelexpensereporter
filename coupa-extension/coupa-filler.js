@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2.2.0';
+  var VERSION = '2.3.0';
   var CONFIG_KEY = 'coupaFiller.config.v2';
   var STATE_KEY = 'coupaFiller.state.v2';
 
@@ -618,10 +618,11 @@
   // The cost code a line is charged to (lines from older app versions only
   // have the trip's).
   function codeFor(entry) {
-    return (entry && entry.line.costCode) || trip().project || null;
+    return (entry && entry.line.costCode) || (trip() && trip().project) || null;
   }
 
   function tripCodes() {
+    if (!trip()) return [];
     var seen = {};
     var codes = [];
     lines().map(codeFor).concat([trip().project]).forEach(function (code) {
@@ -658,18 +659,28 @@
 
   async function teachProject() {
     var entry = lines()[nextPendingIndex(0)] || lines()[0];
-    var code = codeFor(entry);
-    if (running || !code) return;
+    // Without loaded expenses, any project will do: the recorded choices are
+    // then sorted out by the Account search's field names alone.
+    var code = codeFor(entry) || { key: '', label: '', company: '', number: '', wbs: '' };
+    if (running) return;
     running = true;
     say('Opening a line and Coupa’s Account search…');
     try {
-      await openLineForm(false);
+      try {
+        await openLineForm(false);
+      } catch (e) {
+        if (/Could not find/.test(e.message)) throw new Error('open a draft expense report in Coupa first (there’s no “Add Expense Line” button on this page).');
+        throw e;
+      }
       var before = currentAccount();
       await openAccountModal();
       ui.teaching = true;
-      say('Pick the cost code for ' + code.label + ' in Coupa’s Account search the way you usually do: company code ' +
-        (code.company || '') + ', cost type Project WBS, project ' + code.number + ', WBS element ' + code.wbs +
-        '. Then confirm it there. I’m watching, and will do the same for every project after this.');
+      say(code.number
+        ? 'Pick the cost code for ' + code.label + ' in Coupa’s Account search the way you usually do: company code ' +
+          (code.company || '') + ', cost type Project WBS, project ' + code.number + ', WBS element ' + code.wbs +
+          '. Then confirm it there. I’m watching, and will do the same for every project after this.'
+        : 'Pick any project’s cost code in Coupa’s Account search the way you usually do: company code, cost type Project WBS, ' +
+          'the project, the WBS element. Then confirm it there. I’m watching, and will do the same for every project after this.');
       var steps = await recordAccountSteps();
       if (!steps) { say('Teaching cancelled.'); return; }
       var after = currentAccount();
@@ -678,7 +689,7 @@
         return;
       }
       steps.forEach(function (step) { step.slot = slotFor(step, code); });
-      recipes[code.key] = { label: code.label, account: after, wbs: code.wbs, steps: steps };
+      if (code.key) recipes[code.key] = { label: code.label, account: after, wbs: code.wbs, steps: steps };
       recipes.__template = { steps: steps };
       saveRecipes();
       say('Learned it: ' + after + '. Lines for any project now get their cost code automatically. Click Fill next.');
@@ -1128,6 +1139,9 @@
         html += '<div class="row"><span class="grow bad">Show me once how you pick a cost code</span>' +
           '<button class="btn primary" data-act="teach"' + (running || !t.report ? ' disabled' : '') + '>Teach</button></div>';
       }
+      if (!t.report && !ui.teaching) {
+        html += '<div class="muted">' + (recipes.__template ? 'Re-teach' : 'Teach') + ' unlocks once this trip has a report: click “New Coupa report for this trip” or “Use open report” above.</div>';
+      }
     }
     html += '</div>';
 
@@ -1170,9 +1184,20 @@
   }
 
   function renderSetup() {
-    var html = '<div class="muted">Already set up for Coupa’s standard expense screen. Only change these if something isn’t found: open a line form in Coupa, click <b>Pick</b>, then click the matching button or field. Esc cancels.</div>';
+    var html = '<h4>Project cost codes</h4><div class="field">';
+    if (ui.teaching) {
+      html += '<div class="row"><span class="grow muted">Watching the Account search window… Pick the cost code there and confirm it.</span><button class="btn" data-act="cancelTeach">Cancel</button></div>';
+    } else if (recipes.__template) {
+      html += '<div class="row"><span class="grow ok">✓ Learned. Cost codes are set automatically for every project.</span>' +
+        '<button class="btn" data-act="teach"' + (running ? ' disabled' : '') + '>Re-teach</button></div>';
+    } else {
+      html += '<div class="muted">Show me once how you pick a cost code. Open a draft expense report in Coupa, click <b>Teach</b>, then pick a project’s cost code in the Account search window as you usually do and confirm it.</div>' +
+        '<div class="row"><span class="grow bad">Not learned yet</span><button class="btn primary" data-act="teach"' + (running ? ' disabled' : '') + '>Teach</button></div>';
+    }
+    html += '</div>';
     html += '<h4>Options</h4>' +
       '<label class="chk"><input type="checkbox" data-autosave' + (config.autoSave ? ' checked' : '') + '>Click Coupa’s Save after filling each line (enables Fill all)</label>';
+    html += '<h4>Coupa buttons and fields</h4><div class="muted">Already set up for Coupa’s standard expense screen. Only change these if something isn’t found: open a line form in Coupa, click <b>Pick</b>, then click the matching button or field. Esc cancels.</div>';
     html += '<h4>Buttons</h4>';
     BUTTONS.forEach(function (b) {
       html += '<div class="field"><div class="top"><span style="flex:1">' + b[1] + '</span>' +
