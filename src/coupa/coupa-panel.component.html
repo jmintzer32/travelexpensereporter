@@ -140,6 +140,18 @@
         <mat-icon>bolt</mat-icon>
         Copy for bookmarklet
       </button>
+      <label class="flex items-start gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          class="mt-0.5 w-4 h-4 accent-indigo-600"
+          [ngModel]="settings().fillCostCodes"
+          (ngModelChange)="setFillCostCodes($event)"
+        >
+        <span class="text-xs text-slate-600 leading-relaxed">
+          <b class="text-slate-900">Fill cost codes in Coupa.</b>
+          Untick to fill the lines with your default cost center and set cost codes later in Coupa.
+        </span>
+      </label>
     </div>
 
     <div class="flex flex-wrap items-center gap-x-5 gap-y-2">

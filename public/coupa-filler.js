@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2.7.0';
+  var VERSION = '2.8.0';
   var CONFIG_KEY = 'coupaFiller.config.v2';
   var STATE_KEY = 'coupaFiller.state.v2';
 
@@ -161,6 +161,11 @@
       throw new Error('Unrecognized data. Use the "Copy for bookmarklet" button in Travel Expense Reporter.');
     }
     if (data.fillerVersion) noteLatestVersion(data.fillerVersion);
+    // The site's "Fill cost codes in Coupa" choice; the panel's switch can still change it.
+    if (typeof data.fillCostCodes === 'boolean') {
+      config.setCostCodes = data.fillCostCodes;
+      saveConfig();
+    }
     if (Array.isArray(data.trips)) return data.trips;
     if (Array.isArray(data.lines)) return [{ title: '', lines: data.lines }];
     throw new Error('The copied data has no trips.');
@@ -1500,6 +1505,10 @@
     });
     html += '</div>';
     var canFill = !running && !!t.report;
+    if (tripCodes().length) {
+      html += '<label class="chk"><input type="checkbox" data-setcost' + (config.setCostCodes ? ' checked' : '') + '>' +
+        'Fill cost codes' + (config.setCostCodes ? '' : ' <span class="muted">(off: lines keep your default cost center; set them later in Coupa)</span>') + '</label>';
+    }
     html += '<div class="row">' +
       '<button class="btn primary grow" data-act="next"' + (canFill ? '' : ' disabled') + '>' + (running ? 'Working…' : 'Fill next') + '</button>' +
       (running
