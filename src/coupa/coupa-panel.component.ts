@@ -55,6 +55,10 @@ export class CoupaPanelComponent {
     this.coupa.updateSettings({ dateFormat: format });
   }
 
+  setFillCostCodes(on: boolean): void {
+    this.coupa.updateSettings({ fillCostCodes: on });
+  }
+
   setDefaultPurpose(purpose: string): void {
     this.coupa.updateSettings({ defaultPurpose: purpose.trim() });
   }
@@ -118,7 +122,11 @@ export class CoupaPanelComponent {
   }
 
   private payload() {
-    return { ...this.coupa.buildPayload(this.reports(), this.trips()), fillerVersion: this.bookmarklet.version() };
+    return {
+      ...this.coupa.buildPayload(this.reports(), this.trips()),
+      fillerVersion: this.bookmarklet.version(),
+      fillCostCodes: this.settings().fillCostCodes,
+    };
   }
 
   private tripSummary(): string {

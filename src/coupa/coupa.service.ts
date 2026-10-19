@@ -10,6 +10,9 @@ export interface CoupaSettings {
   currency: string;
   // Used for trips that don't have their own business purpose.
   defaultPurpose: string;
+  // Whether the Coupa Filler sets each line's cost code, or leaves the
+  // default cost center for you to change later.
+  fillCostCodes: boolean;
   // App category (Airfare, Lodging, ...) -> Coupa Expense Category name, or
   // the start of it. Blank means you pick it in Coupa.
   expenseTypes: Record<string, string>;
@@ -74,6 +77,8 @@ export interface CoupaPayload {
   // The site's current Coupa Filler version, so an out-of-date bookmark can
   // tell its user to update.
   fillerVersion?: string;
+  // Turns the filler's "Fill cost codes" switch on or off.
+  fillCostCodes?: boolean;
 }
 
 export const APP_CATEGORIES = EXPENSE_CATEGORIES;
@@ -88,6 +93,7 @@ const DEFAULT_SETTINGS: CoupaSettings = {
   dateFormat: 'MM/DD/YYYY',
   currency: 'USD',
   defaultPurpose: 'Business travel',
+  fillCostCodes: true,
   // Coupa's names, as used on past reports. A start that is unique is
   // enough, since the filler picks the first Coupa choice that begins with it.
   expenseTypes: {
