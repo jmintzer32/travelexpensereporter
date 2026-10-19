@@ -22,7 +22,6 @@
     "@angular/forms": "^21.1.4",
     "@angular/material": "^21.1.5",
     "@angular/platform-browser": "^21.1.0",
-    "@google/genai": "^1.41.0",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
     "rxjs": "^7.8.2",

@@ -43,7 +43,7 @@
                   <ul class="list-disc pl-5 mt-2 space-y-1">
                     <li>In <b>2. Define Trips</b>, open a trip’s <b>Project</b> list and choose <b>+ Add a project…</b>. Enter the company code (e.g. 4010), project number, a name you’ll recognize, and the WBS element (travel is usually <code>01A.021200</code>, already filled in).</li>
                     <li>Or, after generating a report, open the <b>sliders icon</b> in <b>4. Enter into Coupa</b> → <b>Add projects from cost codes</b>, and paste cost codes from a past Coupa report, one per line, like <code>4010-Project WBS-12345B1-01A.021200 Main St Tower</code>.</li>
-                    <li>Or pick them in Coupa: once the Coupa Filler bookmark is set up (step 3), open a draft report, click the bookmark, go to <b>Setup</b> → <b>Add a project</b>, pick the project’s cost code as usual, then click <b>Add to expense site</b>. Pick several before sending if you like.</li>
+                    <li>Or pick them in Coupa: once the Coupa Filler bookmark is set up (step 3), open a draft report, click the bookmark, go to <b>Cost codes</b> → <b>Add a project</b>, pick the project’s cost code as usual, then click <b>Add to expense site</b>. Pick several before sending if you like.</li>
                   </ul>
                 </div>
               </li>
@@ -108,7 +108,7 @@
             <ol class="space-y-5">
               <li class="flex gap-4"><span class="step">5</span><div class="flex-1"><h3 class="step-title">Open the Coupa Filler</h3><p>Go to Coupa’s <b>Expenses</b> page and click the <b>Coupa Filler</b> bookmark. A panel opens at the top right. Click in its box, paste (<kbd>Ctrl</kbd>+<kbd>V</kbd>), and click <b>Load expenses</b>.</p></div></li>
               <li class="flex gap-4"><span class="step">6</span><div class="flex-1"><h3 class="step-title">Make the report</h3><p>Pick the trip at the top of the panel, then <b>New Coupa report for this trip</b>. It clicks Create and names the report. To add to a report you already started, open it in Coupa and click <b>Use open report</b> instead.</p></div></li>
-              <li class="flex gap-4"><span class="step">7</span><div class="flex-1"><h3 class="step-title">Fill the lines</h3><p>Click <b>Fill next</b>. It adds a line and fills the category, date, amount, description, merchant, business purpose, zip code and cost code. Check it, click <b>Save</b> in Coupa, then <b>Fill next</b> again.</p><p class="mt-2">Once you trust it: panel <b>Setup</b> tab → tick <b>Click Coupa’s Save after filling each line</b>, then use <b>Fill all</b>.</p></div></li>
+              <li class="flex gap-4"><span class="step">7</span><div class="flex-1"><h3 class="step-title">Fill the lines</h3><p>Click <b>Fill next</b>. It adds a line, fills the category, date, amount, description, merchant, business purpose, zip code and cost code, and saves it. Click <b>Fill next</b> again for the next line, or <b>Fill all</b> to do the rest of the trip while you do something else.</p><p class="mt-2">If a cost code couldn’t be set, the line is still saved: the panel’s <b>Cost codes</b> tab lists those lines and the code each one needs. To check lines before they’re saved, untick <b>Save each line</b> in the panel’s <b>Setup</b> tab.</p></div></li>
               <li class="flex gap-4"><span class="step">8</span><div class="flex-1"><h3 class="step-title">Receipts and submit</h3><p>Attach receipts and submit in Coupa as usual (the filler doesn’t handle receipts). Then pick the next trip in the panel and repeat from step 6.</p></div></li>
             </ol>
             <p class="mt-8 p-4 bg-slate-50 rounded-2xl text-slate-500">No bookmark allowed? Use <b>Entry mode</b> in <b>4. Enter into Coupa</b>: put it beside Coupa and press <kbd>Enter</kbd> to copy each field in Coupa’s order.</p>
@@ -117,7 +117,7 @@
           @case ('teach') {
             <p class="text-slate-500 mb-6">Teach shows the Coupa Filler how you pick a cost code in Coupa’s <b>Account search</b>. You only do it once. After that it does the same for every project, using each project’s company code, project number and WBS element.</p>
             <div class="p-4 mb-7 bg-indigo-50 rounded-2xl text-indigo-900">
-              <b>Where is the Teach button?</b> In <b>Coupa</b>, not on this site. It’s in the Coupa Filler panel: the <b>Setup</b> tab, under <b>Project cost codes</b>. When a trip has a project, it also shows on the <b>Enter lines</b> tab once the trip is linked to a report.
+              <b>Where is the Teach button?</b> In <b>Coupa</b>, not on this site. It’s in the Coupa Filler panel, on the <b>Cost codes</b> tab.
             </div>
             <ol class="space-y-6">
               <li class="flex gap-4"><span class="step">1</span><div class="flex-1"><h3 class="step-title">Open a draft report in Coupa</h3><p>Any draft works, including one the filler just created. Teach adds a new line to it, which you can fill or cancel afterwards.</p></div></li>
@@ -128,11 +128,11 @@
             </ol>
             <h3 class="section-label mt-10">Adding a new project from Coupa</h3>
             <ol class="space-y-6">
-              <li class="flex gap-4"><span class="step">1</span><div class="flex-1"><h3 class="step-title">In the panel’s Setup tab, click “Add a project”</h3><p>With a draft report open. It opens a line and the Account search, like Teach.</p></div></li>
+              <li class="flex gap-4"><span class="step">1</span><div class="flex-1"><h3 class="step-title">On the panel’s Cost codes tab, click “Add a project”</h3><p>With a draft report open. It opens a line and the Account search, like Teach.</p></div></li>
               <li class="flex gap-4"><span class="step">2</span><div class="flex-1"><h3 class="step-title">Pick the project’s cost code and confirm</h3><p>Repeat for more projects if you want.</p></div></li>
               <li class="flex gap-4"><span class="step">3</span><div class="flex-1"><h3 class="step-title">Click “Add to expense site”</h3><p>This site opens in a new tab with the projects added (named after Coupa’s project names). If your browser blocks that, click <b>Copy</b> instead and paste into <b>Add projects from cost codes</b> here. Then cancel the empty line in Coupa.</p></div></li>
             </ol>
-            <p class="mt-8 p-4 bg-slate-50 rounded-2xl text-slate-500">If the panel says <b>“Nothing changed”</b>, click Teach again and make sure you finish with Coupa’s own confirm button. If lines later stop with an <b>“Account:”</b> message, Coupa’s window probably changed: click <b>Re-teach</b>.</p>
+            <p class="mt-8 p-4 bg-slate-50 rounded-2xl text-slate-500">If the panel says <b>“Nothing changed”</b>, click Teach again and make sure you finish with Coupa’s own confirm button. If lines show up on the Cost codes tab as <b>✎ set it in Coupa</b> with an “Account” message, check the project’s numbers on this site, then try <b>Re-teach</b>. Either way the lines are already saved; set their Account in Coupa (tick them → <b>Bulk Line Actions → Edit</b>).</p>
           }
 
           @case ('help') {
@@ -143,7 +143,7 @@
               </div>
               <div>
                 <dt class="step-title">I can’t find Teach</dt>
-                <dd>It’s in the panel on your Coupa page, under the <b>Setup</b> tab. On this site there’s nothing to teach. <button (click)="show('teach')" class="font-bold text-indigo-600 hover:underline">Teach step by step</button>.</dd>
+                <dd>It’s in the panel on your Coupa page, on the <b>Cost codes</b> tab. On this site there’s nothing to teach. <button (click)="show('teach')" class="font-bold text-indigo-600 hover:underline">Teach step by step</button>.</dd>
               </div>
               <div>
                 <dt class="step-title">“Pick the Expense Category in Coupa”</dt>
@@ -154,8 +154,8 @@
                 <dd>Save or cancel that line in Coupa, then click <b>Fill next</b>.</dd>
               </div>
               <div>
-                <dt class="step-title">“Account: …”</dt>
-                <dd>The cost code didn’t take. Check the project’s company code, number and WBS in this site’s settings. If those are right, click <b>Re-teach</b> in the panel.</dd>
+                <dt class="step-title">Lines marked ✎ on the Cost codes tab</dt>
+                <dd>Their cost code didn’t take, but the lines are saved. Set the Account in Coupa: tick those lines → <b>Bulk Line Actions → Edit</b>. Then check the project’s company code, number and WBS in this site’s settings, and if they’re right, click <b>Re-teach</b>. If it keeps happening, turn off <b>Set cost codes while filling lines</b> on that tab.</dd>
               </div>
               <div>
                 <dt class="step-title">My projects or settings disappeared</dt>
@@ -163,7 +163,7 @@
               </div>
               <div>
                 <dt class="step-title">A project I picked in Coupa isn’t on this site</dt>
-                <dd>Teach only teaches the Coupa Filler, since Coupa and this site can’t see each other’s saved data. To bring a project over, use <b>Add a project</b> in the panel’s Setup tab, then <b>Add to expense site</b>. <button (click)="show('teach')" class="font-bold text-indigo-600 hover:underline">Steps</button>.</dd>
+                <dd>Teach only teaches the Coupa Filler, since Coupa and this site can’t see each other’s saved data. To bring a project over, use <b>Add a project</b> on the panel’s Cost codes tab, then <b>Add to expense site</b>. <button (click)="show('teach')" class="font-bold text-indigo-600 hover:underline">Steps</button>.</dd>
               </div>
               <div>
                 <dt class="step-title">I don’t see “4. Enter into Coupa”</dt>

@@ -1,37 +1,29 @@
-# Stage 1: Build the Angular application
+# Stage 1: build the Angular app
 FROM node:22-alpine AS build
 
 WORKDIR /app
 
-# Copy package.json and package-lock.json
 COPY package*.json ./
-
-# Install dependencies
 RUN npm ci
 
-# Copy the rest of the application code
 COPY . .
-
-# Build the application
 RUN npm run build -- --configuration=production
 
-# Stage 2: Serve the application with Nginx
-FROM nginx:alpine
+# Stage 2: a small Node server that serves the app and calls Claude
+# (server/index.js). The Claude API key stays on the server: set
+# ANTHROPIC_API_KEY on the Cloud Run service, from Secret Manager.
+FROM node:22-alpine
 
-# Copy the built application from the build stage
-COPY --from=build /app/dist /usr/share/nginx/html
+ENV NODE_ENV=production
+WORKDIR /app/server
 
-# Copy custom Nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY server/package*.json ./
+RUN npm ci --omit=dev
 
-# Copy entrypoint script
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY server/ ./
+COPY --from=build /app/dist /app/dist
 
-# Make entrypoint script executable
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
-# Expose port 8080 (Cloud Run default)
+# Cloud Run sends traffic to $PORT (8080 by default)
 EXPOSE 8080
-
-# Set the entrypoint
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+USER node
+CMD ["node", "index.js"]

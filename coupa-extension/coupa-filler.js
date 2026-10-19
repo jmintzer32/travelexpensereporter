@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2.4.0';
+  var VERSION = '2.5.0';
   var CONFIG_KEY = 'coupaFiller.config.v2';
   var STATE_KEY = 'coupaFiller.state.v2';
 
@@ -77,7 +77,11 @@
     // Fallback for dropdown choices of type-ahead fields that don't say
     // (via aria-owns) where their choices are.
     optionSelector: '[role="option"], .select2-results__option, .ui-menu-item, .chosen-results li',
-    autoSave: false,
+    // Click Coupa's Save after each line, so Fill next / Fill all keep going.
+    saveEachLine: true,
+    // Set each line's Account to its project while filling. When that fails,
+    // the line is still saved and listed on the Cost codes tab.
+    setCostCodes: true,
     delays: { afterAddLine: 1200, betweenFields: 250, afterSave: 2000, fieldTimeout: 8000 }
   };
 
@@ -597,7 +601,9 @@
       var button = e.target.closest(CLICKABLE);
       if (button && inModal(button) && !button.closest('[role="combobox"]')) {
         var text = elementText(button).replace(/\s+/g, ' ').trim();
-        if (text.length >= 2 && text.length <= 120) record({ type: 'click', text: text });
+        if (text.length >= 2 && text.length <= 120) {
+          record({ type: 'click', text: text, tag: button.tagName, selector: selectorFor(button, true) });
+        }
       }
     }
     document.addEventListener('change', onChange, true);
@@ -646,6 +652,10 @@
     if (code.number && value.indexOf(norm(code.number)) !== -1) return 'project';
     if (code.wbs && value.indexOf(norm(code.wbs)) !== -1) return 'wbs';
     if (code.company && value.indexOf(norm(code.company)) === 0) return 'company';
+    // Without a known project, go by the shape of the codes.
+    if (/\b\d{2}[a-z]\.\d{6}\b/.test(value)) return 'wbs';
+    if (/\b\d{5}[a-z]\d\b/.test(value)) return 'project';
+    if (/^\d{4}\b/.test(value) || /\(\d{4}\)/.test(value)) return 'company';
     return '';
   }
 
@@ -728,6 +738,13 @@
         return;
       }
       steps.forEach(function (step) { step.slot = slotFor(step, code); });
+      // A click on something showing the current company (or project) that
+      // opens a list to choose from is an opener: its text depends on the
+      // line, so it is replayed by where it is, not what it says.
+      steps.forEach(function (step, i) {
+        var next = steps[i + 1];
+        if (step.type === 'click' && step.slot && next && next.type === 'click' && next.slot === step.slot) step.slot = '';
+      });
       if (mode === 'teach' || !recipes.__template) {
         if (code.key) recipes[code.key] = { label: code.label, account: after, wbs: code.wbs, steps: steps };
         recipes.__template = { steps: steps };
@@ -742,7 +759,7 @@
           : 'Coupa shows “' + after + '”, which isn’t a project cost code, so it wasn’t added.', !line);
       } else {
         say('Learned it: ' + after + '. Lines for any project now get their cost code automatically. Click Fill next.' +
-          (line && !code.number ? ' To add this project to the expense site too, use “Add to expense site” in Setup.' : ''));
+          (line && !code.number ? ' To add this project to the expense site too, use “Add to expense site” on the Cost codes tab.' : ''));
       }
     } catch (e) {
       say((mode === 'add' ? 'Add project: ' : 'Teach: ') + e.message, true);
@@ -752,6 +769,44 @@
       running = false;
       render();
     }
+  }
+
+  // A clickable choice in the search window: exact text first, then one
+  // starting with or containing it (so "4010" finds "4010-Company (4010)"),
+  // preferring the kind of element clicked while teaching.
+  var CHOICE = CLICKABLE + ', [role="option"], [role="menuitem"], [role="row"], li, td';
+  async function waitForChoice(value, tag, timeout) {
+    var start = Date.now();
+    while (Date.now() - start < timeout) {
+      var modal = accountModal();
+      if (modal) {
+        var all = toArray(modal.querySelectorAll(CHOICE)).filter(isVisible);
+        // Items of an open list or menu win over the button that opened it.
+        var listItems = all.filter(function (el) { return el.matches('[role="option"], [role="menuitem"], li'); });
+        var sameTag = tag ? all.filter(function (el) { return el.tagName === tag; }) : [];
+        var match = bestOption(listItems, value) || bestOption(sameTag, value) || bestOption(all, value);
+        if (match) return match.closest(CLICKABLE) || match;
+      }
+      await sleep(200);
+    }
+    return null;
+  }
+
+  // Leaves the search window without choosing, so the line can still be saved.
+  async function closeAccountModal() {
+    var modal = accountModal();
+    if (!modal) return;
+    var close = toArray(modal.querySelectorAll(CLICKABLE)).filter(isVisible).filter(function (el) {
+      var label = norm(elementText(el) || el.getAttribute('aria-label') || el.getAttribute('title'));
+      return /^(cancel|close|×|x)$/.test(label);
+    })[0];
+    if (close) {
+      realClick(close);
+    } else {
+      key(document.activeElement || document.body, 'keydown', 'Escape');
+      key(modal, 'keydown', 'Escape');
+    }
+    await waitUntil(function () { return !accountModal(); }, 3000);
   }
 
   // Sets the open line's Account to a project's cost code by replaying the
@@ -786,7 +841,11 @@
           throw new Error('Account, ' + step.label + ': ' + e.message);
         }
       } else {
-        var button = await waitFor('text:' + value, config.delays.fieldTimeout, accountModal).catch(function () { return null; });
+        var button = null;
+        if (!step.slot && step.selector && step.selector.indexOf('text:') !== 0) {
+          button = await waitFor(step.selector, 3000, accountModal).catch(function () { return null; });
+        }
+        if (!button) button = await waitForChoice(value, step.tag, config.delays.fieldTimeout);
         if (!button) throw new Error('Account: couldn’t find “' + value + '” in the search window.');
         realClick(button);
       }
@@ -834,7 +893,7 @@
       try {
         el = await waitFor(field.selector, d.fieldTimeout, lineForm);
       } catch (e) {
-        throw new Error(field.label + ': field not found (' + field.selector + '). Check it in Setup.');
+        throw new Error(field.label + ': field not found (' + field.selector + '). Check it in Setup → Advanced.');
       }
       try {
         await setField(el, String(value), field);
@@ -847,11 +906,28 @@
     }
     if (!line.expenseType) warnings.push('Pick the Expense Category in Coupa (the app has no Coupa category for “' + line.category + '”).');
 
+    // A cost code that won't set never holds up the line: it is listed on
+    // the Cost codes tab to set in Coupa instead.
     var code = codeFor(entry);
-    if (code) await applyCostCode(code);
+    entry.cost = '';
+    entry.costError = '';
+    if (code) {
+      if (!config.setCostCodes || !canSetAccount(code)) {
+        entry.cost = 'todo';
+      } else {
+        try {
+          await applyCostCode(code);
+          entry.cost = 'set';
+        } catch (e) {
+          entry.cost = 'todo';
+          entry.costError = e.message.replace(/^Account:\s*/, '');
+          await closeAccountModal();
+        }
+      }
+    }
 
     if (warnings.length) return warnings.join(' ') + ' Then click Save in Coupa, and Fill next.';
-    if (config.autoSave && config.save) {
+    if (config.saveEachLine && config.save) {
       realClick(await waitFor(config.save, d.fieldTimeout, lineForm));
       var saved = await waitUntil(function () {
         var open = config.lineForm ? resolve(config.lineForm) : null;
@@ -902,7 +978,7 @@
     var entry = list[index];
     try {
       var warning = await fillLine(entry);
-      entry.status = config.autoSave && !warning ? 'done' : 'filled';
+      entry.status = config.saveEachLine && !warning ? 'done' : 'filled';
       entry.error = warning;
       if (!warning) state.current = index + 1;
       return !warning;
@@ -945,7 +1021,7 @@
     try {
       var result = await createReport(trip().title);
       trip().report = result.number;
-      ui.message = result.warning || ('Created report ' + result.number + '. Click Fill next' + (config.autoSave ? ' or Fill all.' : '.'));
+      ui.message = result.warning || ('Created report ' + result.number + '. Click Fill next' + (config.saveEachLine ? ' or Fill all.' : '.'));
       ui.messageErr = !!result.warning;
     } catch (e) {
       ui.message = e.message;
@@ -1177,27 +1253,15 @@
     }
     var codes = tripCodes();
     if (codes.length) {
-      html += '<div class="muted">' + codes.map(function (code) {
-        return (canSetAccount(code) ? '<span class="ok">✓</span> ' : '<span class="bad">✗</span> ') +
-          'Project <b>' + esc(code.label) + '</b> · WBS ' + esc(code.wbs);
-      }).join('<br>') + '</div>';
-      if (ui.teaching) {
-        html += '<div class="row"><span class="grow muted">Watching the Account search window…</span><button class="btn" data-act="cancelTeach">Cancel</button></div>';
-      } else if (recipes.__template) {
-        html += '<div class="row"><span class="grow ok">✓ Cost codes are set automatically</span>' +
-          '<button class="btn" data-act="teach"' + (running || !t.report ? ' disabled' : '') + ' title="Show me again how you pick a cost code">Re-teach</button></div>';
-      } else {
-        html += '<div class="row"><span class="grow bad">Show me once how you pick a cost code</span>' +
-          '<button class="btn primary" data-act="teach"' + (running || !t.report ? ' disabled' : '') + '>Teach</button></div>';
-      }
-      if (!t.report && !ui.teaching) {
-        html += '<div class="muted">' + (recipes.__template ? 'Re-teach' : 'Teach') + ' unlocks once this trip has a report: click “New Coupa report for this trip” or “Use open report” above.</div>';
-      }
+      var todo = list.filter(function (l) { return l.cost === 'todo'; }).length;
+      var set = list.filter(function (l) { return l.cost === 'set'; }).length;
+      html += '<div class="row"><span class="grow muted">Cost codes: ' + set + ' set' + (todo ? ', <b class="bad">' + todo + ' to do in Coupa</b>' : '') +
+        (!recipes.__template ? ' (not taught yet)' : '') + '</span><button class="btn" data-tab="codes">Cost codes</button></div>';
     }
     html += '</div>';
 
     var waiting = list.some(function (l) { return l.status === 'filled' && !l.error; });
-    if (waiting && !config.autoSave) {
+    if (waiting && !config.saveEachLine) {
       html += '<div class="msg">Check the line in Coupa, click <b>Save</b> there, then <b>Fill next</b>.</div>';
     }
     html += '<div class="lines">';
@@ -1212,15 +1276,16 @@
         '</div>';
     });
     html += '</div>';
-    var canFill = !running && !!t.report && tripCodes().every(canSetAccount);
+    var canFill = !running && !!t.report;
     html += '<div class="row">' +
       '<button class="btn primary grow" data-act="next"' + (canFill ? '' : ' disabled') + '>' + (running ? 'Working…' : 'Fill next') + '</button>' +
-      (config.autoSave
-        ? (running ? '<button class="btn" data-act="stop">Stop</button>' : '<button class="btn" data-act="all"' + (canFill ? '' : ' disabled') + '>Fill all</button>')
-        : '') +
+      (running
+        ? '<button class="btn" data-act="stop">Stop</button>'
+        : '<button class="btn" data-act="all"' + (canFill && config.saveEachLine ? '' : ' disabled') +
+          (config.saveEachLine ? '' : ' title="Turn on “Save each line” in Setup"') + '>Fill all</button>') +
       '<button class="btn" data-act="skip"' + (running || !list[state.current] ? ' disabled' : '') + '>Skip</button></div>';
-    if (!config.autoSave) {
-      html += '<div class="muted">You click Save in Coupa for each line. Turn on auto-save in Setup to enable “Fill all”.</div>';
+    if (!config.saveEachLine) {
+      html += '<div class="muted">You click Save in Coupa for each line. Turn on “Save each line” in Setup to enable Fill all.</div>';
     }
     return html;
   }
@@ -1234,15 +1299,20 @@
     }
   }
 
-  function renderSetup() {
-    var html = '<h4>Project cost codes</h4><div class="field">';
+  function renderCodes() {
+    var html = '<label class="chk"><input type="checkbox" data-setcost' + (config.setCostCodes ? ' checked' : '') +
+      '>Set cost codes while filling lines</label>' +
+      '<div class="muted">Lines are always filled and saved. Any cost code that couldn’t be set is listed below to set in Coupa.</div>';
+
+    // What the filler knows about picking cost codes.
+    html += '<h4>How to pick a cost code</h4><div class="field">';
     if (ui.teaching) {
       html += '<div class="row"><span class="grow muted">Watching the Account search window… Pick the cost code there and confirm it.</span><button class="btn" data-act="cancelTeach">Cancel</button></div>';
     } else if (recipes.__template) {
-      html += '<div class="row"><span class="grow ok">✓ Learned. Cost codes are set automatically for every project.</span>' +
-        '<button class="btn" data-act="teach"' + (running ? ' disabled' : '') + '>Re-teach</button></div>';
+      html += '<div class="row"><span class="grow ok">✓ Learned</span>' +
+        '<button class="btn" data-act="teach"' + (running ? ' disabled' : '') + ' title="Show me again how you pick a cost code">Re-teach</button></div>';
     } else {
-      html += '<div class="muted">Show me once how you pick a cost code: open a draft expense report, click <b>Teach</b>, then pick a project in Coupa’s Account search as usual and confirm it.</div>' +
+      html += '<div class="muted">Show me once: open a draft expense report, click <b>Teach</b>, then pick a project in Coupa’s Account search as usual and confirm it.</div>' +
         '<div class="row"><span class="grow bad">Not learned yet</span><button class="btn primary" data-act="teach"' + (running ? ' disabled' : '') + '>Teach</button></div>';
     }
     if (!ui.teaching) {
@@ -1258,8 +1328,42 @@
         '<button class="btn' + (url ? '' : ' primary grow') + '" data-act="copyProjects">Copy</button></div>';
     }
     html += '</div>';
+
+    // This trip's lines, by project.
+    if (!trip()) return html + '<div class="muted">Paste your expenses to see each line’s cost code here.</div>';
+    var groups = {};
+    var order = [];
+    lines().forEach(function (l) {
+      var code = codeFor(l);
+      if (!code) return;
+      if (!groups[code.key]) { groups[code.key] = { code: code, lines: [] }; order.push(code.key); }
+      groups[code.key].lines.push(l);
+    });
+    if (!order.length) return html + '<div class="muted">No project on this trip: its lines keep your default cost center.</div>';
+    html += '<h4>This trip’s lines</h4>';
+    order.forEach(function (k) {
+      var g = groups[k];
+      var c = g.code;
+      html += '<div class="field"><div class="row"><div class="grow"><b>' + esc(c.label) + '</b><div class="muted">' +
+        esc([c.company, 'Project WBS', c.number, c.wbs].filter(Boolean).join(' · ')) + '</div></div>' +
+        '<button class="btn" data-copy="' + esc(c.number || c.label) + '" title="Copy the project number">Copy #</button></div>';
+      g.lines.forEach(function (l) {
+        var icon = l.cost === 'set' ? '<span class="ok">✓</span>' : l.cost === 'todo' ? '<span class="bad">✎</span>' : '<span class="muted">○</span>';
+        html += '<div class="row" style="font-size:12px"><span style="width:14px">' + icon + '</span><span class="grow">' + esc(l.line.merchant) +
+          ' <span class="muted">' + esc(l.line.date) + '</span>' +
+          (l.costError ? '<div class="bad">' + esc(l.costError) + '</div>' : '') + '</span><span class="amt">' + esc(l.line.amount) + '</span></div>';
+      });
+      html += '</div>';
+    });
+    html += '<div class="muted"><span class="ok">✓</span> set · <span class="bad">✎</span> set it in Coupa · ○ not filled yet. ' +
+      'To set several lines at once in Coupa: tick them, then <b>Bulk Line Actions → Edit</b> and pick the Account.</div>';
+    return html;
+  }
+
+  function renderSetup() {
+    var html = '';
     html += '<h4>Options</h4>' +
-      '<label class="chk"><input type="checkbox" data-autosave' + (config.autoSave ? ' checked' : '') + '>Click Coupa’s Save after filling each line (enables Fill all)</label>';
+      '<label class="chk"><input type="checkbox" data-autosave' + (config.saveEachLine ? ' checked' : '') + '>Save each line: click Coupa’s Save after filling it (needed for Fill all)</label>';
     html += '<h4>Back up</h4>' +
       '<div class="muted">Saved in this browser only. Copy it to keep a backup or move it to another computer.</div>' +
       '<div class="row"><button class="btn" data-act="export">Copy setup</button><button class="btn" data-act="import">Import setup…</button></div>';
@@ -1305,11 +1409,11 @@
       '<button data-act="close" title="Close">×</button></div>';
     if (!ui.minimized) {
       html += '<div class="tabs">' +
-        ['load', 'run', 'setup'].map(function (t) {
-          return '<button data-tab="' + t + '" class="' + (ui.tab === t ? 'on' : '') + '">' + { load: 'Paste data', run: 'Enter lines', setup: 'Setup' }[t] + '</button>';
+        ['load', 'run', 'codes', 'setup'].map(function (t) {
+          return '<button data-tab="' + t + '" class="' + (ui.tab === t ? 'on' : '') + '">' + { load: 'Paste data', run: 'Enter lines', codes: 'Cost codes', setup: 'Setup' }[t] + '</button>';
         }).join('') + '</div><div class="body">';
       if (ui.message) html += '<div class="msg' + (ui.messageErr ? ' err' : '') + '">' + esc(ui.message) + '</div>';
-      html += ui.tab === 'load' ? renderLoad() : ui.tab === 'run' ? renderRun() : renderSetup();
+      html += ui.tab === 'load' ? renderLoad() : ui.tab === 'run' ? renderRun() : ui.tab === 'codes' ? renderCodes() : renderSetup();
       html += '<div class="muted" style="text-align:right">v' + VERSION + '</div></div>';
     }
     html += '</div>';
@@ -1341,8 +1445,14 @@
   }
 
   root.addEventListener('click', function (e) {
-    var t = e.target.closest('[data-act],[data-tab],[data-line],[data-pick],[data-up]');
+    var t = e.target.closest('[data-act],[data-tab],[data-line],[data-pick],[data-up],[data-copy]');
     if (!t) return;
+    if (t.hasAttribute('data-copy')) {
+      var text = t.getAttribute('data-copy');
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { say('Copied ' + text + '.'); });
+      else window.prompt('Copy:', text);
+      return;
+    }
     var act = t.getAttribute('data-act');
     if (t.hasAttribute('data-tab')) { ui.tab = t.getAttribute('data-tab'); ui.message = ''; render(); return; }
     if (t.hasAttribute('data-line')) {
@@ -1483,7 +1593,8 @@
     else if (t.hasAttribute('data-fsel')) config.fields[Number(t.getAttribute('data-fsel'))].selector = t.value.trim();
     else if (t.hasAttribute('data-fkind')) config.fields[Number(t.getAttribute('data-fkind'))].kind = t.value;
     else if (t.hasAttribute('data-fen')) config.fields[Number(t.getAttribute('data-fen'))].enabled = t.checked;
-    else if (t.hasAttribute('data-autosave')) config.autoSave = t.checked;
+    else if (t.hasAttribute('data-autosave')) config.saveEachLine = t.checked;
+    else if (t.hasAttribute('data-setcost')) config.setCostCodes = t.checked;
     else if (t.hasAttribute('data-delay')) config.delays[t.getAttribute('data-delay')] = Math.max(0, Number(t.value) || 0);
     else return;
     saveConfig();

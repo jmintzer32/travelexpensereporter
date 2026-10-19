@@ -2,7 +2,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal, PLATFORM_ID } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { GeminiService } from './services/gemini.service';
+import { ExpenseAiService } from './services/expense-ai.service';
 import { Expense } from './models/expense.model';
 import { Trip } from './models/trip.model';
 import { TripReport } from './models/trip-report.model';
@@ -34,7 +34,7 @@ interface UploadedFile {
   ],
 })
 export class AppComponent {
-  private readonly geminiService = inject(GeminiService);
+  private readonly expenseAi = inject(ExpenseAiService);
   private readonly platformId = inject(PLATFORM_ID);
   private pdfjsLib: any;
   private nextTripId = 1;
@@ -354,7 +354,7 @@ export class AppComponent {
 
     try {
       const reportPromises = this.trips().map(async (trip) => {
-        const expenses = await this.geminiService.generateExpenseReport(
+        const expenses = await this.expenseAi.generateExpenseReport(
           statementContent,
           trip.startDate,
           trip.endDate

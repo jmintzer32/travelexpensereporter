@@ -1,106 +1,78 @@
 # Travel Expense Reporter
 
-This is an Angular application for extracting and categorizing travel expenses from credit card statements using Google Gemini AI.
+Reads credit card statements, pulls out each trip's travel expenses with Claude, and helps enter them into Coupa.
+
+The Angular app (`src/`) runs in the browser. A small Node server (`server/`) serves it and does the statement analysis with Claude, so the Claude API key stays on the server and never reaches the browser.
 
 ## Prerequisites
 
-- Node.js (v18 or later)
-- Docker (optional, for containerized deployment)
-- Google Cloud SDK (gcloud) (for deployment to Cloud Run)
+- Node.js 20 or later
+- A Claude API key from [console.anthropic.com](https://console.anthropic.com/) (Settings → API keys)
+- Google Cloud SDK (`gcloud`), to deploy to Cloud Run
 
-## Local Development
-
-1.  Install dependencies:
-    ```bash
-    npm install
-    ```
-
-2.  Start the development server:
-    ```bash
-    npm start
-    ```
-    Navigate to `http://localhost:4200/`.
-
-## Deployment to Google Cloud Run
-
-This application is containerized using Docker and can be deployed to Google Cloud Run.
-
-### 1. Build the Docker Image
+## Local development
 
 ```bash
-docker build -t travel-expense-reporter .
+npm install
+(cd server && npm install)
+npm run build
+cd server && ANTHROPIC_API_KEY=sk-ant-... node index.js
 ```
 
-### 2. Run Locally (Optional)
+Then open `http://localhost:8080/`. (`npm run dev` serves the app alone, without the server, so statement analysis won't work there.)
 
-To test the container locally, you need to provide your Gemini API key:
+## Configuration (environment variables on the server)
+
+- **ANTHROPIC_API_KEY** (required): the Claude API key. On Cloud Run, store it in Secret Manager (below).
+- **APP_PASSCODE** (optional, recommended): the site is public, so anyone who finds it could run statements through your Claude account. When set, the site asks for this passcode once per browser before analyzing statements.
+
+## Deploying to Google Cloud Run
+
+### 1. Store the Claude API key in Secret Manager
+
+Console: **Security → Secret Manager → Create secret**, name `anthropic-api-key`, paste the key as the value. Or:
 
 ```bash
-docker run -p 8080:8080 -e GEMINI_API_KEY=your_api_key_here travel-expense-reporter
-```
-Navigate to `http://localhost:8080/`.
-
-### 3. Push to Google Container Registry (GCR) or Artifact Registry
-
-First, configure Docker to authenticate with gcloud:
-```bash
-gcloud auth configure-docker
+printf '%s' 'sk-ant-...' | gcloud secrets create anthropic-api-key --data-file=-
 ```
 
-Tag and push the image:
-```bash
-# Replace PROJECT_ID with your Google Cloud Project ID
-docker tag travel-expense-reporter gcr.io/PROJECT_ID/travel-expense-reporter
-docker push gcr.io/PROJECT_ID/travel-expense-reporter
-```
+### 2. Let the Cloud Run service read it
 
-### 4. Deploy to Cloud Run
-
-Deploy the image to Cloud Run, setting the `GEMINI_API_KEY` environment variable:
+Console: Secret Manager → `anthropic-api-key` → **Permissions → Grant access**, add the service's runtime service account (shown on the Cloud Run service's **Security** tab; often `PROJECT_NUMBER-compute@developer.gserviceaccount.com`) with the role **Secret Manager Secret Accessor**. Or:
 
 ```bash
-gcloud run deploy travel-expense-reporter \
-  --image gcr.io/PROJECT_ID/travel-expense-reporter \
-  --platform managed \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --set-env-vars GEMINI_API_KEY=your_api_key_here
+gcloud secrets add-iam-policy-binding anthropic-api-key \
+  --member="serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
 ```
 
-Replace `your_api_key_here` with your actual Gemini API key.
+### 3. Give the key (and a passcode) to the service
 
-## GitHub Integration
+Console: **Cloud Run → your service → Edit & deploy new revision → Variables & Secrets**:
+- **Reference a secret**: secret `anthropic-api-key`, exposed as environment variable `ANTHROPIC_API_KEY`, version `latest`.
+- Add variable `APP_PASSCODE` with a passcode of your choice.
+- Remove the old `GEMINI_API_KEY` variable.
 
-To push this code to GitHub:
+Or:
 
-1.  Initialize a Git repository:
-    ```bash
-    git init
-    ```
+```bash
+gcloud run services update SERVICE_NAME --region us-central1 \
+  --set-secrets ANTHROPIC_API_KEY=anthropic-api-key:latest \
+  --update-env-vars APP_PASSCODE=choose-a-passcode \
+  --remove-env-vars GEMINI_API_KEY
+```
 
-2.  Add files:
-    ```bash
-    git add .
-    ```
+These settings stay with the service, so later deploys from GitHub keep them.
 
-3.  Commit changes:
-    ```bash
-    git commit -m "Initial commit"
-    ```
+### 4. Deploy
 
-4.  Add remote repository:
-    ```bash
-    git remote add origin https://github.com/your-username/your-repo-name.git
-    ```
+If the service redeploys from GitHub automatically, pushing to `main` is enough. Otherwise:
 
-5.  Push to GitHub:
-    ```bash
-    git push -u origin main
-    ```
+```bash
+gcloud run deploy SERVICE_NAME --source . --region us-central1 --allow-unauthenticated
+```
 
-## Configuration
-
--   **GEMINI_API_KEY**: Required environment variable for the AI features to work. Get your key from [Google AI Studio](https://aistudio.google.com/).
+To try the container locally: `docker build -t travel-expense-reporter .` then `docker run -p 8080:8080 -e ANTHROPIC_API_KEY=sk-ant-... travel-expense-reporter`.
 
 ## Entering expenses into Coupa
 
@@ -109,8 +81,9 @@ The site has a step-by-step guide: click **How it works** at the top of the page
 After generating reports, the **4. Enter into Coupa** panel offers three ways to get lines into Coupa. Give each trip a **Business Purpose** in step 2, since Coupa requires one on every line. The settings button (sliders icon) sets the date format, currency, the Coupa Expense Category for each app category (preset to Coupa's names, e.g. Meals → Meals - Travel), and your projects. When Coupa doesn't list a category or zip code, the filler fills the rest of the line and leaves that field for you.
 
 - **Entry mode**: click-to-copy each field in Coupa's order. `Enter` copies the next field, `1`–`9` copy a specific one, `↑`/`↓` change line. Nothing to install.
-- **Bookmarklet**: drag the "Coupa Filler" button to your bookmarks bar, click **Copy for bookmarklet**, then click the bookmark in Coupa and paste. Each trip becomes its own Coupa report: pick the trip in the panel, click **New Coupa report for this trip**, then **Fill next** (or **Fill all** with auto-save on). It's preset for Coupa's expense screen; if Coupa changes, the panel's **Setup** tab has a **Pick** button to point at a button or field again, and **Copy setup** / **Import setup** move that setup between computers.
-- **Project cost codes**: add projects (company code, project number, name, usual WBS element) from a trip's **Project** list, or paste past cost codes like `4010-Project WBS-12345B1-01A.021200` into **Add projects from cost codes** in the settings. Pick a project per trip; any expense line can be switched to a different project in the results table. In the Coupa Filler panel (on your Coupa page, **Setup** tab), click **Teach** once and pick a cost code in Coupa's Account search as usual; the filler records which choices were the company code, project and WBS element, and from then on sets the cost code on every line, for any project. To add a project you only have in Coupa, use **Add a project** in the panel's Setup tab, then **Add to expense site**: this site opens with the project added (Coupa and this site can't read each other's saved data, so the panel hands it over in the link). **Copy setup** includes what it learned.
+- **Bookmarklet**: drag the "Coupa Filler" button to your bookmarks bar, click **Copy for bookmarklet**, then click the bookmark in Coupa and paste. Each trip becomes its own Coupa report: pick the trip in the panel, click **New Coupa report for this trip**, then **Fill next** or **Fill all**; each line is saved in Coupa as it's filled. It's preset for Coupa's expense screen; if Coupa changes, the panel's **Setup → Advanced** section has a **Pick** button to point at a button or field again, and **Copy setup** / **Import setup** move that setup between computers.
+- **Project cost codes**: add projects (company code, project number, name, usual WBS element) from a trip's **Project** list, or paste past cost codes like `4010-Project WBS-12345B1-01A.021200` into **Add projects from cost codes** in the settings. Pick a project per trip; any expense line can be switched to a different project in the results table. In the Coupa Filler panel (on your Coupa page, **Cost codes** tab), click **Teach** once and pick a cost code in Coupa's Account search as usual; the filler records which choices were the company code, project and WBS element, and from then on sets the cost code on every line, for any project. A cost code that can't be set never holds up a line: the line is saved anyway and listed on the Cost codes tab with the code to set in Coupa. To add a project you only have in Coupa, use **Add a project** on the panel's Cost codes tab, then **Add to expense site**: this site opens with the project added (Coupa and this site can't read each other's saved data, so the panel hands it over in the link). **Copy setup** includes what it learned.
+- **Booking fees**: a travel agency booking fee (Egencia and similar, up to $50) charged within 3 days of a flight is folded into that flight's Airfare line (`src/services/merge-fees.ts`).
 - **Chrome extension** (`coupa-extension/`, load unpacked at `chrome://extensions`): same filler, without copy and paste. It runs only on this app's URL and on whatever tab you open it in.
 
 The bookmarklet and the extension share one script, `public/coupa-filler.js`. `npm run build` copies it into `coupa-extension/` (via `scripts/sync-extension.mjs`), so edit only the copy in `public/`.
