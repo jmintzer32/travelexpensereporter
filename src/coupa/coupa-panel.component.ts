@@ -33,6 +33,10 @@ export class CoupaPanelComponent {
 
   readonly coupaTrips = computed(() => this.coupa.buildTrips(this.reports(), this.trips()).filter(t => t.lines.length > 0));
   readonly lineCount = computed(() => this.coupaTrips().reduce((n, t) => n + t.lines.length, 0));
+  // Meal and lodging lines Coupa will reject for having no zip code.
+  readonly missingZips = computed(() => this.reports()
+    .flatMap(r => r.expenses)
+    .filter(e => ['Meals', 'Lodging'].includes(e.category) && !/^\d{5}$/.test(e.zipCode || '')).length);
   readonly entryModeOpen = signal(false);
   readonly showSettings = signal(false);
   readonly showBookmarkletHelp = signal(false);

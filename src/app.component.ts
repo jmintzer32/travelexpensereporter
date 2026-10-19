@@ -166,6 +166,20 @@ export class AppComponent {
   }
 
   // Charges one expense to a different project than its trip's ('' = the trip's).
+  // Coupa won't accept a meal or lodging line without a zip code.
+  needsZip(expense: Expense): boolean {
+    return ['Meals', 'Lodging'].includes(expense.category) && !/^\d{5}$/.test(expense.zipCode || '');
+  }
+
+  setExpenseZip(reportIndex: number, expenseIndex: number, zip: string): void {
+    const value = zip.trim();
+    if (!/^\d{5}$/.test(value)) return;
+    this.reports.update(reports => reports && reports.map((r, i) => i !== reportIndex ? r : {
+      ...r,
+      expenses: r.expenses.map((e, j) => j !== expenseIndex ? e : { ...e, zipCode: value }),
+    }));
+  }
+
   setExpenseProject(reportIndex: number, expenseIndex: number, projectId: string): void {
     this.reports.update(reports => reports && reports.map((r, i) => i !== reportIndex ? r : {
       ...r,
