@@ -71,6 +71,9 @@ export interface CoupaPayload {
   source: 'travel-expense-reporter';
   version: 2;
   trips: CoupaTrip[];
+  // The site's current Coupa Filler version, so an out-of-date bookmark can
+  // tell its user to update.
+  fillerVersion?: string;
 }
 
 export const APP_CATEGORIES = EXPENSE_CATEGORIES;

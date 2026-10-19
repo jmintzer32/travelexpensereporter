@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2.6.0';
+  var VERSION = '2.7.0';
   var CONFIG_KEY = 'coupaFiller.config.v2';
   var STATE_KEY = 'coupaFiller.state.v2';
 
@@ -160,9 +160,78 @@
     if (!data || data.source !== 'travel-expense-reporter') {
       throw new Error('Unrecognized data. Use the "Copy for bookmarklet" button in Travel Expense Reporter.');
     }
+    if (data.fillerVersion) noteLatestVersion(data.fillerVersion);
     if (Array.isArray(data.trips)) return data.trips;
     if (Array.isArray(data.lines)) return [{ title: '', lines: data.lines }];
     throw new Error('The copied data has no trips.');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Updates
+  // ---------------------------------------------------------------------------
+  //
+  // A bookmarklet is a frozen copy of this file. The expense site puts its
+  // current version in the data it copies, so an older copy can say so and
+  // load the new one from the site.
+
+  var LATEST_KEY = 'coupaFiller.latestVersion.v1';
+  var latestVersion = storageGet(LATEST_KEY) || '';
+
+  function isNewer(a, b) {
+    var x = String(a).split('.').map(Number);
+    var y = String(b).split('.').map(Number);
+    for (var i = 0; i < Math.max(x.length, y.length); i++) {
+      if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+    }
+    return false;
+  }
+
+  function noteLatestVersion(version) {
+    latestVersion = version;
+    storageSet(LATEST_KEY, version);
+  }
+
+  function updateAvailable() {
+    return !!latestVersion && isNewer(latestVersion, VERSION);
+  }
+
+  // Loads the site's current filler into this page; it takes over from this
+  // one, keeping the loaded trips and settings. Coupa's security settings may
+  // block it, in which case the bookmark has to be replaced.
+  function updateNow() {
+    var url = appUrl();
+    var failed = function () {
+      ui.updateBlocked = true;
+      render();
+    };
+    if (!url) { failed(); return; }
+    say('Updating…');
+    var script = document.createElement('script');
+    script.src = url + 'public/coupa-filler.js?v=' + encodeURIComponent(latestVersion);
+    var timer = setTimeout(failed, 8000);
+    script.onload = function () {
+      clearTimeout(timer);
+      var updated = window.__coupaFiller;
+      if (updated && updated.version !== VERSION) {
+        updated.open();
+        if (updated.notify) updated.notify('Updated to v' + updated.version + '.');
+      } else {
+        failed();
+      }
+    };
+    script.onerror = function () { clearTimeout(timer); failed(); };
+    document.documentElement.appendChild(script);
+  }
+
+  function renderUpdate() {
+    if (!updateAvailable()) return '';
+    var url = appUrl();
+    if (ui.updateBlocked) {
+      return '<div class="msg err">Coupa blocked the update, so replace your bookmark: on the expense site, <b>How it works → One-time setup</b>, step 3.' +
+        (url ? ' <a href="' + esc(url) + '" target="_blank" rel="noopener">Open the expense site ↗</a>' : '') + '</div>';
+    }
+    return '<div class="msg"><div class="row"><span class="grow">A newer Coupa Filler (v' + esc(latestVersion) + ') is available. This bookmark is v' + VERSION + '.</span>' +
+      '<button class="btn primary" data-act="update">Update now</button></div></div>';
   }
 
   function loadTrips(trips) {
@@ -1566,6 +1635,7 @@
         ['load', 'run', 'codes', 'setup'].map(function (t) {
           return '<button data-tab="' + t + '" class="' + (ui.tab === t ? 'on' : '') + '">' + { load: 'Paste data', run: 'Enter lines', codes: 'Cost codes', setup: 'Setup' }[t] + '</button>';
         }).join('') + '</div><div class="body">';
+      html += renderUpdate();
       if (ui.message) html += '<div class="msg' + (ui.messageErr ? ' err' : '') + '">' + esc(ui.message) + '</div>';
       html += ui.tab === 'load' ? renderLoad() : ui.tab === 'run' ? renderRun() : ui.tab === 'codes' ? renderCodes() : renderSetup();
       html += '<div class="muted" style="text-align:right">v' + VERSION + '</div></div>';
@@ -1652,6 +1722,7 @@
         });
         break;
       case 'newReport': newReportForTrip(); break;
+      case 'update': updateNow(); break;
       case 'teach': captureProject('teach'); break;
       case 'addProject': captureProject('add'); break;
       case 'sendProjects':
@@ -1768,6 +1839,10 @@
       ui.minimized = false;
       if (payload) acceptPayload(payload);
       else render();
+    },
+    // Shows a message in the panel (used by the copy this one replaced).
+    notify: function (message) {
+      say(message);
     },
     destroy: function () {
       stopRequested = true;

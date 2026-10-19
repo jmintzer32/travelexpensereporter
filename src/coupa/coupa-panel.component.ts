@@ -114,7 +114,7 @@ export class CoupaPanelComponent {
   }
 
   private payload() {
-    return this.coupa.buildPayload(this.reports(), this.trips());
+    return { ...this.coupa.buildPayload(this.reports(), this.trips()), fillerVersion: this.bookmarklet.version() };
   }
 
   private tripSummary(): string {
