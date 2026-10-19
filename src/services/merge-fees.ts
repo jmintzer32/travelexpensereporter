@@ -20,7 +20,7 @@ export function mergeBookingFees(expenses: Expense[]): Expense[] {
     const flight = closest(flights, fee);
     if (!flight) return true;
     flight.amount = Math.round((flight.amount + fee.amount) * 100) / 100;
-    flight.description = `${flight.description} (incl. $${fee.amount.toFixed(2)} ${fee.merchant} fee)`;
+    flight.description = `${flight.description} (incl. $${fee.amount.toFixed(2)} booking fee)`;
     return false;
   });
 }

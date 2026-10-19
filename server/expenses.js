@@ -35,15 +35,22 @@ Travel booked ahead is the exception to watch for. Flights, and sometimes trains
 
 Payments, credits and refunds aren't expenses. Leave out charges that clearly have nothing to do with the trip, like streaming or other personal subscriptions. The employee reviews the list before it goes into Coupa, so when a charge plausibly belongs to the trip, include it.
 
-Give one line per expense as the approver would think of it. When one expense was billed as more than one charge, combine them into a single line with the total. The usual case is a travel agency's booking or service fee (Egencia, Concur, Navan and the like) charged alongside the ticket: it belongs on that flight's Airfare line, with the fee mentioned in the description. Genuinely separate expenses stay separate, such as two flights, two hotel stays, or an airline's seat or bag fee.
+Give one line per expense as the approver would think of it. When one expense was billed as more than one charge, combine them into a single line with the total. The usual case is a travel agency's booking or service fee (Egencia, Concur, Navan and the like) charged alongside the ticket: it belongs on that flight's Airfare line, with "incl. booking fee" added to the description. Genuinely separate expenses stay separate, such as two flights, two hotel stays, or an airline's seat or bag fee.
 
 For each line:
 - date: the day it was charged, as YYYY-MM-DD, or the travel date for travel booked ahead.
 - merchant: the business name without card-processor noise ("UBER *TRIP" becomes "Uber").
-- description: a short note the approver understands at a glance, such as "Flight SFO-IAD", "Hotel, 3 nights", "Dinner" or "Taxi to job site".
+- description: what the expense was, in plain words (see below).
 - category: the one from the list below that fits best.
 - amount: the amount in dollars, as a positive number.
 - zipCode: as described below.
+
+Descriptions are what the approver reads, so write each one the way the employee would describe the expense to them: what it was and where, never the card's merchant text ("EGENCIA FEE", "UBER *TRIP"). Work out the trip's destination from the flights, hotel and the cities on the statement, and the employee's home from where the flights start and end. Some examples of the style:
+- Flights: "Flight to SFO" for the way out, "Flight home from SFO" for the way back, "Round trip SFO-IAD" when one ticket covers both.
+- Meals: name the meal when it's clear from the merchant or a time on the statement ("Dinner in Washington DC", "Breakfast in Seattle"), otherwise "Meal in San Francisco".
+- Getting around: "Rental car in Seattle", "Rental car fuel", "Uber to airport", "Uber in San Francisco", "Parking at SFO".
+- Hotels: "Hotel in Washington DC, 3 nights" when the nights are known.
+Keep them short, a few words each.
 
 Categories:
 ${categoryList}
