@@ -9,7 +9,8 @@ const MAX_FEE = 50;
 const MAX_DAYS = 3;
 
 // Folds each agency booking fee into the flight it belongs to, so Coupa gets
-// one Airfare line with the full cost. A fee with no flight nearby is kept.
+// one Airfare line with the full cost. The flight keeps its description; the
+// receipt already lists the fee. A fee with no flight nearby is kept.
 export function mergeBookingFees(expenses: Expense[]): Expense[] {
   const isFee = (e: Expense) => e.amount <= MAX_FEE && AGENCY_FEE.test(`${e.merchant} ${e.description}`);
   const result = expenses.map(e => ({ ...e }));
@@ -20,7 +21,6 @@ export function mergeBookingFees(expenses: Expense[]): Expense[] {
     const flight = closest(flights, fee);
     if (!flight) return true;
     flight.amount = Math.round((flight.amount + fee.amount) * 100) / 100;
-    flight.description = `${flight.description} (incl. $${fee.amount.toFixed(2)} booking fee)`;
     return false;
   });
 }
