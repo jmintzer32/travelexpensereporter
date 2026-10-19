@@ -2,7 +2,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal, PLATFORM_ID } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { GeminiService } from './services/gemini.service';
+import { ExpenseAiService } from './services/expense-ai.service';
 import { Expense } from './models/expense.model';
 import { Trip } from './models/trip.model';
 import { TripReport } from './models/trip-report.model';
@@ -34,7 +34,7 @@ interface UploadedFile {
   ],
 })
 export class AppComponent {
-  private readonly geminiService = inject(GeminiService);
+  private readonly expenseAi = inject(ExpenseAiService);
   private readonly platformId = inject(PLATFORM_ID);
   private pdfjsLib: any;
   private nextTripId = 1;
@@ -44,6 +44,8 @@ export class AppComponent {
   private readonly coupa = inject(CoupaService);
   readonly guide = inject(GuideService);
   readonly projects = this.coupa.projects;
+  // Shown after projects arrive from the Coupa Filler.
+  readonly coupaImportNotice = signal<string | null>(null);
   // Trip whose "add project" form is open.
   readonly addingProjectFor = signal<number | null>(null);
 
@@ -61,6 +63,7 @@ export class AppComponent {
         this.initPdfJs();
       }
       this.addTrip();
+      this.importProjectsFromCoupa();
     } catch (e) {
       this.handleError('Failed to initialize the application. Please refresh the page.', e);
     }
@@ -138,7 +141,15 @@ export class AppComponent {
     this.trips.update(currentTrips => [...currentTrips, newTrip]);
   }
 
-  selectProject(tripId: number, value: string): void {
+  private importProjectsFromCoupa(): void {
+    const added = this.coupa.importProjectsFromAddress();
+    if (added === null) return;
+    this.coupaImportNotice.set(added.length
+      ? `Added from Coupa: ${added.map(projectLabel).join(', ')}. Pick ${added.length === 1 ? 'it' : 'them'} in a trip’s Project list.`
+      : 'Those projects from Coupa are already in your list.');
+  }
+
+    selectProject(tripId: number, value: string): void {
     if (value === '__new') {
       this.addingProjectFor.set(tripId);
       return;
@@ -343,7 +354,7 @@ export class AppComponent {
 
     try {
       const reportPromises = this.trips().map(async (trip) => {
-        const expenses = await this.geminiService.generateExpenseReport(
+        const expenses = await this.expenseAi.generateExpenseReport(
           statementContent,
           trip.startDate,
           trip.endDate

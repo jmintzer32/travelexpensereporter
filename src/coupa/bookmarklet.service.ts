@@ -33,8 +33,10 @@ export class BookmarkletService {
       const source = await res.text();
       // Self-contained, so it still works if Coupa's security policy blocks
       // loading scripts from other sites.
+      // The filler links back here to add projects picked in Coupa.
+      const appUrl = JSON.stringify(document.baseURI);
       this.code = 'javascript:' + encodeURIComponent(
-        `(function(){${source}\n;window.__coupaFiller&&window.__coupaFiller.open();})();void 0`
+        `(function(){window.__coupaFillerAppUrl=${appUrl};${source}\n;window.__coupaFiller&&window.__coupaFiller.open();})();void 0`
       );
       this.version.set(/VERSION = '([^']+)'/.exec(source)?.[1] ?? '');
       this.href.set(this.sanitizer.bypassSecurityTrustUrl(this.code));

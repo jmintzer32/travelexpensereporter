@@ -1,3 +1,7 @@
+// The Travel Expense Reporter, which the filler links back to for adding
+// projects picked in Coupa. Same address as in manifest.json.
+const APP_URL = 'https://travelexpensereporter-git-103038434391.us-central1.run.app/';
+
 document.addEventListener('DOMContentLoaded', () => {
   const statusBox = document.getElementById('status-box');
   const fillBtn = document.getElementById('fill-btn');
@@ -36,8 +40,11 @@ document.addEventListener('DOMContentLoaded', () => {
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       world: 'MAIN',
-      func: (payload) => window.__coupaFiller.open(payload),
-      args: [pendingPayload]
+      func: (payload, appUrl) => {
+        window.__coupaFillerAppUrl = appUrl;
+        window.__coupaFiller.open(payload);
+      },
+      args: [pendingPayload, APP_URL]
     });
 
     if (pendingPayload) {

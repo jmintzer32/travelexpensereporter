@@ -21,6 +21,16 @@
       </button>
     </header>
 
+    @if (coupaImportNotice()) {
+      <div class="-mt-8 mb-12 p-4 bg-teal-50 border border-teal-100 rounded-2xl text-teal-800 text-sm flex gap-3 items-start" role="status">
+        <mat-icon class="text-teal-500 !w-auto !h-auto shrink-0">check_circle</mat-icon>
+        <span class="flex-1">{{ coupaImportNotice() }}</span>
+        <button (click)="coupaImportNotice.set(null)" class="text-teal-600 hover:text-teal-900" aria-label="Dismiss">
+          <mat-icon class="!text-lg !w-auto !h-auto">close</mat-icon>
+        </button>
+      </div>
+    }
+
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
       
       <!-- Left Column: Configuration (Clean Utility) -->
