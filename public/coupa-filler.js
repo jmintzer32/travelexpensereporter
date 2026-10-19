@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2.5.0';
+  var VERSION = '2.6.0';
   var CONFIG_KEY = 'coupaFiller.config.v2';
   var STATE_KEY = 'coupaFiller.state.v2';
 
@@ -518,10 +518,11 @@
     return el ? (el.getAttribute('title') || el.textContent || '').trim() : '';
   }
 
-  // The search window: the last visible dialog-like element with a field in it.
+  // The search window: the last visible dialog-like element with a field or
+  // button in it (its fields may be plain boxes that open a search list).
   function accountModal() {
     var all = findAll(config.account.modal).filter(function (el) {
-      return isVisible(el) && el.querySelector(FIELD);
+      return isVisible(el) && el.querySelector(FIELD + ', ' + CLICKABLE);
     });
     return all.length ? all[all.length - 1] : null;
   }
@@ -637,8 +638,9 @@
     return codes;
   }
 
+  // A project number is enough to search for; Teach covers the rest.
   function canSetAccount(code) {
-    return !!(recipes[code.key] || recipes.__template);
+    return !!(code.number || recipes[code.key] || recipes.__template);
   }
 
   // Which part of the cost code a recorded step chose, so the steps can be
@@ -811,7 +813,159 @@
 
   // Sets the open line's Account to a project's cost code by replaying the
   // taught steps with that project's company code, number and WBS element.
+  // The Account search window's fields, found by their labels, and the
+  // project value to type into each one's search box.
+  var ACCOUNT_FIELDS = [
+    { label: /comp(any)?\s*code|compcode/i, name: 'Company Code', value: function (c) { return c.company; } },
+    { label: /cost\s*type/i, name: 'Cost Type', value: function () { return 'Project WBS'; }, hint: function (c) { return c.company; } },
+    { label: /proj/i, name: 'Project', value: function (c) { return c.number; } },
+    { label: /wbs/i, name: 'WBS Element', value: function (c) { return c.wbs; } }
+  ];
+  var FIELD_WIDGET = '[role="combobox"], select, input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), ' +
+    '[class*="ComboBox__field"], [class*="select2-selection"], [class*="selection"], [class*="dropdown"]';
+  var OPTION = '[role="option"], li, .select2-results__option, [class*="option"], [class*="result"]';
+
+  // The row of the search window whose label matches.
+  function accountRow(modal, labelRe) {
+    var labels = toArray(modal.querySelectorAll('label, th, dt, [class*="label"]')).filter(function (el) {
+      var text = (el.textContent || '').trim();
+      return isVisible(el) && text.length < 80 && labelRe.test(text);
+    });
+    for (var i = 0; i < labels.length; i++) {
+      var node = labels[i];
+      if (node.htmlFor) {
+        var target = document.getElementById(node.htmlFor);
+        if (target) return { row: target.closest('tr, .form_element') || target.parentElement, widget: target };
+      }
+      for (var up = 0; up < 5 && node && node !== modal; up++) {
+        node = node.parentElement;
+        var widget = node && toArray(node.querySelectorAll(FIELD_WIDGET)).filter(function (el) {
+          return !labels[i].contains(el) && isVisible(el);
+        })[0];
+        if (widget) return { row: node, widget: widget };
+      }
+      // No recognizable field: take what sits next to the label.
+      var label = labels[i];
+      var next = label.nextElementSibling;
+      while (next && !isVisible(next)) next = next.nextElementSibling;
+      if (next) return { row: label.parentElement, widget: next };
+    }
+    return null;
+  }
+
+  function visibleTextInputs() {
+    return toArray(document.querySelectorAll('input[type="text"], input[type="search"], input:not([type])')).filter(isVisible);
+  }
+
+  // Opens one field's dropdown, types the code into its search box and clicks
+  // the result containing it (codes are unique, so there should be one).
+  // hint: text that picks between several matches (the company code).
+  async function pickInAccountField(field, value, hint) {
+    var modal = accountModal();
+    var found = modal && accountRow(modal, field.label);
+    if (!found) throw new Error('no “' + field.name + '” field in the search window.');
+    if (norm(found.row.textContent).indexOf(norm(value)) !== -1 && found.widget.tagName !== 'INPUT') return; // already chosen
+    if (found.widget.tagName === 'SELECT') return setSelect(found.widget, value);
+
+    var before = visibleTextInputs();
+    // Only choices that appear once the list opens count, not text elsewhere
+    // on the page (like saved lines showing their accounts).
+    var onPage = toArray(document.querySelectorAll(OPTION)).filter(isVisible);
+    realClick(found.widget);
+    await sleep(400);
+    var search = function () {
+      var active = document.activeElement;
+      if (active && active.tagName === 'INPUT' && isVisible(active)) return active;
+      return visibleTextInputs().filter(function (el) { return before.indexOf(el) === -1; })[0] ||
+        (found.widget.tagName === 'INPUT' ? found.widget : null);
+    };
+    var box = search();
+    if (!box) {
+      // Some dropdowns open from their arrow rather than the box.
+      var toggle = found.row.querySelector('[class*="toggle"], [class*="arrow"], button');
+      if (toggle) { realClick(toggle); await sleep(400); box = search(); }
+    }
+    if (!box) throw new Error('couldn’t open the “' + field.name + '” list.');
+    typeInto(box, value);
+
+    var wanted = norm(value);
+    var choice = null;
+    var start = Date.now();
+    while (!choice && Date.now() - start < 6000) {
+      await sleep(250);
+      var options = toArray(document.querySelectorAll(OPTION)).filter(function (el) {
+        return isVisible(el) && onPage.indexOf(el) === -1 && !found.widget.contains(el) && !el.querySelector(OPTION) &&
+          norm(elementText(el)).indexOf(wanted) !== -1;
+      });
+      // Prefer "...(24037B1)" or "24037B1-..." over a mere mention.
+      var exact = options.filter(function (el) {
+        var t = norm(elementText(el));
+        return t.indexOf('(' + wanted + ')') !== -1 || t.indexOf(wanted + '-') === 0 || t === wanted;
+      });
+      var hinted = hint ? options.filter(function (el) { return norm(elementText(el)).indexOf(norm(hint)) !== -1; }) : [];
+      choice = exact[0] || (options.length === 1 ? options[0] : null) || (hinted.length === 1 ? hinted[0] : null);
+    }
+    if (!choice) {
+      key(box, 'keydown', 'Escape');
+      throw new Error('no “' + field.name + '” choice matching “' + value + '”.');
+    }
+    realClick(choice);
+    await sleep(500);
+  }
+
+  // The search window's own confirm button: the one clicked while teaching,
+  // or one with a confirm-like name.
+  function confirmButton() {
+    var modal = accountModal();
+    if (!modal) return null;
+    var taught = (recipes.__template ? recipes.__template.steps : []).filter(function (st) { return st.type === 'click' && !st.slot; }).pop();
+    if (taught) {
+      var el = taught.selector && taught.selector.indexOf('text:') !== 0 ? resolve(taught.selector, modal) : resolve('text:' + taught.text, modal);
+      if (el) return el;
+    }
+    return toArray(modal.querySelectorAll(CLICKABLE)).filter(isVisible).filter(function (b) {
+      return /^(save|ok|choose|select|apply|done|update|use (this )?account)$/.test(norm(elementText(b)));
+    })[0] || null;
+  }
+
+  // Sets the line's Account by searching each field for the project's codes.
+  async function searchCostCode(code) {
+    await openAccountModal();
+    for (var i = 0; i < ACCOUNT_FIELDS.length; i++) {
+      var f = ACCOUNT_FIELDS[i];
+      var value = f.value(code);
+      if (value) await pickInAccountField(f, value, f.hint ? f.hint(code) : '');
+    }
+    var ok = confirmButton();
+    if (ok) realClick(ok);
+    if (!(await waitUntil(function () { return !accountModal(); }, ok ? 8000 : 2000))) {
+      throw new Error(ok ? 'the search window didn’t close after confirming.' : 'couldn’t find the search window’s confirm button. Click Teach once so I learn it.');
+    }
+    await sleep(400);
+    var now = currentAccount();
+    if (code.number && norm(now).indexOf(norm(code.number)) === -1) {
+      throw new Error('Coupa shows “' + now + '”, not ' + code.label + '.');
+    }
+  }
+
+  // Search first; if that fails, replay what Teach recorded.
   async function applyCostCode(code) {
+    var before = currentAccount();
+    if (code.number && norm(before).indexOf(norm(code.number)) !== -1 && (!code.wbs || norm(before).indexOf(norm(code.wbs)) !== -1)) return;
+    try {
+      await searchCostCode(code);
+    } catch (e) {
+      await closeAccountModal();
+      if (!(recipes[code.key] || recipes.__template)) throw new Error('Account: ' + e.message);
+      try {
+        await replayRecipe(code);
+      } catch (replayError) {
+        throw new Error('Account: ' + e.message);
+      }
+    }
+  }
+
+  async function replayRecipe(code) {
     var own = recipes[code.key];
     var recipe = own || recipes.__template;
     if (!recipe) throw new Error('Account: click Teach first, to show me how you pick a cost code.');
@@ -1256,7 +1410,7 @@
       var todo = list.filter(function (l) { return l.cost === 'todo'; }).length;
       var set = list.filter(function (l) { return l.cost === 'set'; }).length;
       html += '<div class="row"><span class="grow muted">Cost codes: ' + set + ' set' + (todo ? ', <b class="bad">' + todo + ' to do in Coupa</b>' : '') +
-        (!recipes.__template ? ' (not taught yet)' : '') + '</span><button class="btn" data-tab="codes">Cost codes</button></div>';
+        '</span><button class="btn" data-tab="codes">Cost codes</button></div>';
     }
     html += '</div>';
 
@@ -1305,15 +1459,15 @@
       '<div class="muted">Lines are always filled and saved. Any cost code that couldn’t be set is listed below to set in Coupa.</div>';
 
     // What the filler knows about picking cost codes.
-    html += '<h4>How to pick a cost code</h4><div class="field">';
+    html += '<h4>How cost codes are picked</h4><div class="field">' +
+      '<div class="muted">The filler searches each Account field for the project’s codes (company, Project WBS, project number, WBS element). Teach is only needed if that doesn’t work.</div>';
     if (ui.teaching) {
       html += '<div class="row"><span class="grow muted">Watching the Account search window… Pick the cost code there and confirm it.</span><button class="btn" data-act="cancelTeach">Cancel</button></div>';
     } else if (recipes.__template) {
-      html += '<div class="row"><span class="grow ok">✓ Learned</span>' +
+      html += '<div class="row"><span class="grow ok">✓ Taught too</span>' +
         '<button class="btn" data-act="teach"' + (running ? ' disabled' : '') + ' title="Show me again how you pick a cost code">Re-teach</button></div>';
     } else {
-      html += '<div class="muted">Show me once: open a draft expense report, click <b>Teach</b>, then pick a project in Coupa’s Account search as usual and confirm it.</div>' +
-        '<div class="row"><span class="grow bad">Not learned yet</span><button class="btn primary" data-act="teach"' + (running ? ' disabled' : '') + '>Teach</button></div>';
+      html += '<div class="row"><span class="grow muted">Teach (optional): show me once how you pick a cost code.</span><button class="btn" data-act="teach"' + (running ? ' disabled' : '') + '>Teach</button></div>';
     }
     if (!ui.teaching) {
       html += '<div class="row"><span class="grow muted">New project? Pick it here and send it to the expense site.</span>' +

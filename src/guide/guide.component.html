@@ -88,8 +88,8 @@
               <li class="flex gap-4">
                 <span class="step">4</span>
                 <div class="flex-1">
-                  <h3 class="step-title">Teach the cost code, once</h3>
-                  <p>Show the Coupa Filler once how you pick a cost code in Coupa, and it does it for every project after that. <button (click)="show('teach')" class="font-bold text-indigo-600 hover:underline">How to teach →</button></p>
+                  <h3 class="step-title">Cost codes: nothing to set up</h3>
+                  <p>The Coupa Filler opens each line’s Account search and types the project’s codes into each field (company code, Project WBS, project number, WBS element), picking the one match. Only if that doesn’t work for you, show it once with <b>Teach</b>. <button (click)="show('teach')" class="font-bold text-indigo-600 hover:underline">More →</button></p>
                 </div>
               </li>
             </ol>
@@ -115,7 +115,7 @@
           }
 
           @case ('teach') {
-            <p class="text-slate-500 mb-6">Teach shows the Coupa Filler how you pick a cost code in Coupa’s <b>Account search</b>. You only do it once. After that it does the same for every project, using each project’s company code, project number and WBS element.</p>
+            <p class="text-slate-500 mb-6">Usually you don’t need Teach: the Coupa Filler searches each field of Coupa’s <b>Account search</b> for the project’s codes, which are unique, and picks the one match. Teach is the backup: if a cost code still won’t set (the line shows ✎ on the panel’s Cost codes tab), show it once how you pick a cost code and it repeats that for every project.</p>
             <div class="p-4 mb-7 bg-indigo-50 rounded-2xl text-indigo-900">
               <b>Where is the Teach button?</b> In <b>Coupa</b>, not on this site. It’s in the Coupa Filler panel, on the <b>Cost codes</b> tab.
             </div>
