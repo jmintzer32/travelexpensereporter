@@ -35,7 +35,7 @@ Travel booked ahead is the exception to watch for. Flights, and sometimes trains
 
 Payments, credits and refunds aren't expenses. Leave out charges that clearly have nothing to do with the trip, like streaming or other personal subscriptions. The employee reviews the list before it goes into Coupa, so when a charge plausibly belongs to the trip, include it.
 
-Give one line per expense as the approver would think of it. When one expense was billed as more than one charge, combine them into a single line with the total. The usual case is a travel agency's booking or service fee (Egencia, Concur, Navan and the like) charged alongside the ticket: it belongs on that flight's Airfare line, with "incl. booking fee" added to the description. Genuinely separate expenses stay separate, such as two flights, two hotel stays, or an airline's seat or bag fee.
+Give one line per expense as the approver would think of it. When one expense was billed as more than one charge, combine them into a single line with the total. The usual case is a travel agency's booking or service fee (Egencia, Concur, Navan and the like) charged alongside the ticket: it belongs on that flight's Airfare line, and the description stays the flight's own ("Flight to SFO"), since the receipt already lists the fee. Genuinely separate expenses stay separate, such as two flights, two hotel stays, or an airline's seat or bag fee.
 
 For each line:
 - date: the day it was charged, as YYYY-MM-DD, or the travel date for travel booked ahead.
