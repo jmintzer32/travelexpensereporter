@@ -82,7 +82,7 @@
                     }
                   </div>
                   <p><b>Can’t drag it</b> (some work laptops block that)? <button (click)="copyBookmarklet()" class="font-bold text-indigo-600 hover:underline">{{ copied() ? 'Copied ✓' : 'Copy the bookmarklet' }}</button>, then right-click the bookmarks bar → <b>Add page…</b> (Edge: <b>Add favorite</b>), name it <b>Coupa Filler</b>, and paste into the <b>URL</b> box.</p>
-                  <p class="mt-2 text-slate-400">When this site gets an update, replace the bookmark the same way. The panel shows its version at the bottom.</p>
+                  <p class="mt-2 text-slate-400">When this site gets an update, the panel says so the next time you paste expenses: click <b>Update now</b>. If Coupa blocks that, replace the bookmark the same way as above. The panel shows its version at the bottom.</p>
                 </div>
               </li>
               <li class="flex gap-4">
@@ -140,6 +140,10 @@
               <div>
                 <dt class="step-title">Nothing happens when I click the bookmark</dt>
                 <dd>Make sure the Coupa tab is the one in front, then click it again. If it still doesn’t open, delete the bookmark and add it again from <button (click)="show('setup')" class="font-bold text-indigo-600 hover:underline">One-time setup</button>, step 3. Use Chrome or Edge.</dd>
+              </div>
+              <div>
+                <dt class="step-title">“A newer Coupa Filler is available”</dt>
+                <dd>Click <b>Update now</b> in the panel. If it says Coupa blocked the update, replace your bookmark: <button (click)="show('setup')" class="font-bold text-indigo-600 hover:underline">One-time setup</button>, step 3. What it learned and your settings are kept either way.</dd>
               </div>
               <div>
                 <dt class="step-title">I can’t find Teach</dt>
