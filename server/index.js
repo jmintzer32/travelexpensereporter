@@ -7,18 +7,11 @@ import { StatementError, extractExpenses } from './expenses.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 // The built Angular app (Dockerfile copies it here).
 const staticDir = process.env.STATIC_DIR || path.join(here, '../dist');
-// Optional: when set, the app asks for this passcode before using Claude,
-// so strangers who find the site can't run up the API bill.
-const passcode = process.env.APP_PASSCODE || '';
 
 const app = express();
 app.use(express.json({ limit: '25mb' }));
 
 app.post('/api/expenses', async (req, res) => {
-  if (passcode && req.get('x-app-passcode') !== passcode) {
-    res.status(401).json({ error: 'Passcode required.' });
-    return;
-  }
   const { statement, startDate, endDate, categories } = req.body ?? {};
   if (typeof statement !== 'string' || !statement.trim() || !startDate || !endDate || !Array.isArray(categories) || !categories.length) {
     res.status(400).json({ error: 'Send statement, startDate, endDate and categories.' });

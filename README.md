@@ -24,47 +24,26 @@ Then open `http://localhost:8080/`. (`npm run dev` serves the app alone, without
 ## Configuration (environment variables on the server)
 
 - **ANTHROPIC_API_KEY** (required): the Claude API key. On Cloud Run, store it in Secret Manager (below).
-- **APP_PASSCODE** (optional, recommended): the site is public, so anyone who finds it could run statements through your Claude account. When set, the site asks for this passcode once per browser before analyzing statements.
+
+The site is public, so anyone with the link can run statements through your Claude account. Set a monthly spend limit in the Claude Console (**Settings → Limits**) to cap the cost.
 
 ## Deploying to Google Cloud Run
 
-### 1. Store the Claude API key in Secret Manager
+### 1. Give the Claude API key to the service
 
-Console: **Security → Secret Manager → Create secret**, name `anthropic-api-key`, paste the key as the value. Or:
-
-```bash
-printf '%s' 'sk-ant-...' | gcloud secrets create anthropic-api-key --data-file=-
-```
-
-### 2. Let the Cloud Run service read it
-
-Console: Secret Manager → `anthropic-api-key` → **Permissions → Grant access**, add the service's runtime service account (shown on the Cloud Run service's **Security** tab; often `PROJECT_NUMBER-compute@developer.gserviceaccount.com`) with the role **Secret Manager Secret Accessor**. Or:
-
-```bash
-gcloud secrets add-iam-policy-binding anthropic-api-key \
-  --member="serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
-  --role="roles/secretmanager.secretAccessor"
-```
-
-### 3. Give the key (and a passcode) to the service
-
-Console: **Cloud Run → your service → Edit & deploy new revision → Variables & Secrets**:
-- **Reference a secret**: secret `anthropic-api-key`, exposed as environment variable `ANTHROPIC_API_KEY`, version `latest`.
-- Add variable `APP_PASSCODE` with a passcode of your choice.
-- Remove the old `GEMINI_API_KEY` variable.
-
-Or:
+Console: **Cloud Run → your service → Edit & deploy new revision → Variables & Secrets → Add variable**: name `ANTHROPIC_API_KEY`, value your key. Remove the old `GEMINI_API_KEY` variable. Or:
 
 ```bash
 gcloud run services update SERVICE_NAME --region us-central1 \
-  --set-secrets ANTHROPIC_API_KEY=anthropic-api-key:latest \
-  --update-env-vars APP_PASSCODE=choose-a-passcode \
+  --update-env-vars ANTHROPIC_API_KEY=sk-ant-... \
   --remove-env-vars GEMINI_API_KEY
 ```
 
+The key stays on the server (visitors never see it), but people with access to the Google Cloud project can read it in the service's settings. If you can use Secret Manager, reference a secret instead (**Reference a secret** on the same screen; the service account needs **Secret Manager Secret Accessor** on it).
+
 These settings stay with the service, so later deploys from GitHub keep them.
 
-### 4. Deploy
+### 2. Deploy
 
 If the service redeploys from GitHub automatically, pushing to `main` is enough. Otherwise:
 
