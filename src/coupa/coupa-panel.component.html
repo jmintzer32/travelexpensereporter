@@ -104,6 +104,13 @@
     </div>
   }
 
+  @if (missingZips()) {
+    <div class="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-800 text-sm flex gap-3 items-start" role="alert">
+      <mat-icon class="text-rose-500 !w-auto !h-auto shrink-0">location_off</mat-icon>
+      <span>{{ missingZips() }} meal or lodging {{ missingZips() === 1 ? 'line has' : 'lines have' }} no zip code, and Coupa won’t accept the report without one. Fill in the red <b>Zip needed</b> boxes in the trip report first.</span>
+    </div>
+  }
+
   <!-- Option A: entry mode -->
   <div class="flex flex-col sm:flex-row sm:items-center gap-4 p-5 rounded-2xl border border-slate-200">
     <div class="flex-1">
